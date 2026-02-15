@@ -25,6 +25,35 @@
 
 ---
 
+## 👨‍💻 About the Author
+
+<table>
+  <tr>
+    <td><strong>Developer</strong></td>
+    <td><strong>Yashab Alam</strong></td>
+  </tr>
+  <tr>
+    <td>🐙 GitHub</td>
+    <td><a href="https://github.com/yashab-cyber">github.com/yashab-cyber</a></td>
+  </tr>
+  <tr>
+    <td>💼 LinkedIn</td>
+    <td><a href="https://www.linkedin.com/in/yashab-alam">linkedin.com/in/yashab-alam</a></td>
+  </tr>
+  <tr>
+    <td>📧 Email</td>
+    <td><a href="mailto:yashabalam707@gmail.com">yashabalam707@gmail.com</a> · <a href="mailto:yashabalam9@gmail.com">yashabalam9@gmail.com</a></td>
+  </tr>
+  <tr>
+    <td>❤️ Donate</td>
+    <td><a href="DONATE.md"><strong>Support HackBot → DONATE.md</strong></a></td>
+  </tr>
+</table>
+
+> HackBot is free & open-source. If it has helped you, please consider [supporting its development](DONATE.md) or reaching out for collaboration!
+
+---
+
 ## ⚡ Features
 
 | Feature | Description |
