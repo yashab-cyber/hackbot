@@ -1,1 +1,1057 @@
-# hackbot
+<div align="center">
+
+```
+  ██╗  ██╗ █████╗  ██████╗██╗  ██╗██████╗  ██████╗ ████████╗
+  ██║  ██║██╔══██╗██╔════╝██║ ██╔╝██╔══██╗██╔═══██╗╚══██╔══╝
+  ███████║███████║██║     █████╔╝ ██████╔╝██║   ██║   ██║
+  ██╔══██║██╔══██║██║     ██╔═██╗ ██╔══██╗██║   ██║   ██║
+  ██║  ██║██║  ██║╚██████╗██║  ██╗██████╔╝╚██████╔╝   ██║
+  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═════╝  ╚═════╝    ╚═╝
+```
+
+# HackBot — AI Cybersecurity Assistant
+
+**Production-ready AI-powered pentesting & cybersecurity assistant with Agent, Chat & Planning modes, native desktop GUI, 10 AI providers, and built-in intelligence modules.**
+
+[![CI](https://github.com/yashab-cyber/hackbot/actions/workflows/ci.yml/badge.svg)](https://github.com/yashab-cyber/hackbot/actions)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
+[![Tests](https://img.shields.io/badge/tests-93%20passing-brightgreen.svg)]()
+
+[Features](#-features) • [GUI](#%EF%B8%8F-native-desktop-gui) • [Install](#-installation) • [Quick Start](#-quick-start) • [Modes](#-modes) • [Intelligence](#%EF%B8%8F-intelligence-modules) • [Providers](#-ai-providers) • [Config](#%EF%B8%8F-configuration) • [Docker](#-docker)
+
+</div>
+
+---
+
+## ⚡ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🤖 **Agent Mode** | Autonomous penetration testing — runs real security tools, analyzes results, adapts strategy |
+| 💬 **Chat Mode** | Interactive cybersecurity Q&A with streaming responses and conversation memory |
+| 📋 **Planning Mode** | Generates structured pentest plans, checklists, and attack methodologies |
+| 🖥️ **Native Desktop GUI** | Full-featured graphical interface with dark theme, powered by pywebview |
+| 🛡️ **CVE/Exploit Lookup** | Real-time CVE search against NVD, exploit PoC discovery via GitHub |
+| 🌐 **OSINT Module** | Subdomain enumeration, DNS recon, WHOIS, email harvesting, tech stack fingerprinting |
+| 🗺️ **Network Topology Visualizer** | Interactive D3.js force-directed graph from nmap/masscan scan output |
+| 📋 **Compliance Mapping** | Auto-map findings to PCI DSS v4.0, NIST 800-53, OWASP Top 10, ISO 27001 controls |
+| 🔀 **Diff Reports** | Compare two assessments — see new, fixed, and persistent vulnerabilities at a glance |
+| 🎯 **Multi-Target Campaigns** | Define a scope with multiple hosts/URLs and run coordinated assessments across all of them |
+| 🧩 **Custom Plugins** | Python plugin system — register your own scripts as agent-callable tools |
+| 🧠 **Memory & Sessions** | Auto-save conversations, session history, `/continue` truncated responses, conversation summarization |
+| 🌍 **10 AI Providers** | OpenAI, Anthropic, Google Gemini, Groq, Mistral, DeepSeek, Together AI, OpenRouter, Ollama, Local |
+| 🔧 **30+ Tool Integrations** | nmap, nikto, sqlmap, nuclei, ffuf, subfinder, hydra, gobuster, and more |
+| 📊 **Auto Reporting** | HTML, Markdown, JSON, and professional PDF reports with executive summary, risk matrix, charts |
+| 🛡️ **Safe Mode** | Command validation, blocked dangerous commands, risky-command confirmation prompts |
+| 💻 **Cross-Platform** | Linux, macOS, Windows — pip install, Docker, or one-line installer |
+| 🎨 **Rich Terminal UI** | Beautiful output with syntax highlighting, markdown rendering, progress indicators |
+
+---
+
+## 🖥️ Native Desktop GUI
+
+HackBot includes a full native desktop GUI — no browser needed. Launch it with a single command:
+
+```bash
+hackbot gui
+```
+
+### GUI Features
+
+- **Dark cybersecurity theme** with a polished, modern interface
+- **Real-time streaming** — AI responses stream in via Server-Sent Events (SSE)
+- **All modes accessible** — Chat, Agent, Plan, CVE Lookup, OSINT, Topology, Compliance panels
+- **Session management** — Browse, restore, and delete saved sessions from the sidebar
+- **Provider switching** — Change AI provider and model on the fly from the settings panel
+- **Agent control panel** — Start assessments, step through actions, view findings live
+- **CVE search panel** — Search by keyword, CVE ID, or browse exploits with severity filters
+- **OSINT panel** — Run subdomain enumeration, DNS lookups, WHOIS, and tech fingerprinting
+- **Topology visualization** — Paste nmap/masscan output and see an interactive D3.js network graph
+- **Compliance panel** — Map agent findings to PCI DSS, NIST 800-53, OWASP Top 10, ISO 27001 with summary cards and per-framework tables
+- **Diff report panel** — Compare two assessments side-by-side to see new, fixed, and persistent vulnerabilities with trend analysis
+- **Campaign dashboard** — Create, manage, and monitor multi-target campaigns with progress tracking, target status, and coordinated findings
+- **Plugin manager** — Browse, reload, and execute custom plugins with argument inputs and live output
+- **PDF export** — One-click professional PDF report generation with charts and executive summary from the agent panel
+- **Markdown rendering** — Full markdown support with syntax highlighting in responses
+- **Native OS window** — Powered by pywebview for a true desktop application feel
+
+### GUI Architecture
+
+| Component | Technology |
+|-----------|------------|
+| Backend | Flask 3.0+ with SSE streaming |
+| Frontend | Single-page HTML/CSS/JS with dark theme |
+| Desktop Window | pywebview 5.0+ (native OS webview) |
+| Visualization | D3.js v7 force-directed graphs |
+| Markdown | marked.js renderer |
+
+### GUI Layout
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🤖 HackBot                              ⚙️ Settings       │
+│ ┌──────────┐ ┌────────────────────────────────────────────┐ │
+│ │ 💬 Chat  │ │                                            │ │
+│ │ 🤖 Agent │ │   Chat / Agent / Plan / CVE / OSINT /     │ │
+│ │ 📋 Plan  │ │   Topology panels with real-time output    │ │
+│ │ 🛡️ CVE   │ │                                            │ │
+│ │ 🌐 OSINT │ │   Streaming AI responses with markdown     │ │
+│ │ 🗺️ Topo  │ │   rendering and syntax highlighting        │ │
+│ │          │ │                                            │ │
+│ │ Sessions │ ├────────────────────────────────────────────┤ │
+│ │ • sess-1 │ │ [  Type your message...          ] [Send] │ │
+│ │ • sess-2 │ │                                            │ │
+│ └──────────┘ └────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📦 Installation
+
+### One-Line Install (Linux/macOS)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/yashab-cyber/hackbot/main/install.sh | bash
+```
+
+Full install with security tools:
+```bash
+curl -sSL https://raw.githubusercontent.com/yashab-cyber/hackbot/main/install.sh | bash -s full
+```
+
+### pip (All Platforms)
+
+```bash
+pip install git+https://github.com/yashab-cyber/hackbot.git
+```
+
+### pipx (Isolated Install)
+
+```bash
+pipx install git+https://github.com/yashab-cyber/hackbot.git
+```
+
+### From Source (Development)
+
+```bash
+git clone https://github.com/yashab-cyber/hackbot.git
+cd hackbot
+pip install -e ".[all,dev]"
+```
+
+### Windows
+
+```powershell
+# Option 1: pip
+pip install git+https://github.com/yashab-cyber/hackbot.git
+
+# Option 2: Download and run installer
+git clone https://github.com/yashab-cyber/hackbot.git
+cd hackbot
+install.bat
+```
+
+### Docker
+
+```bash
+docker build -t hackbot .
+docker run -it -e HACKBOT_API_KEY=your-key hackbot
+```
+
+---
+
+## 🚀 Quick Start
+
+### 1. Set Your API Key
+
+```bash
+# Option A: Environment variable
+export HACKBOT_API_KEY=sk-your-openai-key
+
+# Option B: Setup command
+hackbot setup sk-your-openai-key
+
+# Option C: Set inside the app
+hackbot
+/key sk-your-openai-key
+```
+
+### 2. Launch HackBot
+
+```bash
+# Terminal UI (default)
+hackbot
+
+# Native desktop GUI
+hackbot gui
+
+# Direct mode launch
+hackbot agent scanme.nmap.org
+hackbot plan example.com --type web_pentest
+```
+
+### 3. Start Hacking (Ethically!)
+
+```
+💬 hackbot> /agent scanme.nmap.org
+```
+
+---
+
+## 🎯 Modes
+
+### 🤖 Agent Mode — Autonomous Security Testing
+
+The Agent Mode is the core feature. It autonomously:
+- Plans a structured assessment methodology
+- Executes real security tools (nmap, nikto, nuclei, etc.)
+- Analyzes output and determines next steps
+- Tracks findings with severity ratings (Critical/High/Medium/Low/Info)
+- Generates comprehensive reports
+- **Recommends CVE lookups** after service detection
+- **Suggests OSINT recon** before active scanning
+- **Builds network topology** from scan results
+- **Maps findings to compliance frameworks** automatically after assessment
+
+```bash
+# Start directly
+hackbot agent scanme.nmap.org
+
+# Or switch inside the app
+/agent 192.168.1.0/24
+```
+
+**What it does:**
+```
+🤖 HackBot Agent:
+Starting assessment against scanme.nmap.org
+
+Phase 1: Reconnaissance
+▶ Executing: nmap
+  nmap -sV -sC -O scanme.nmap.org -oN scan_results.txt
+
+◀ nmap SUCCESS (exit=0, 32.1s)
+┌──────────────────────────────────────┐
+│ PORT     STATE SERVICE VERSION       │
+│ 22/tcp   open  ssh     OpenSSH 6.6  │
+│ 80/tcp   open  http    Apache 2.4.7 │
+│ 9929/tcp open  nping-echo            │
+└──────────────────────────────────────┘
+
+🔍 [Info] Open SSH Service Detected
+  OpenSSH 6.6 on port 22 — check for known vulnerabilities
+
+💡 Tip: Use /cve OpenSSH 6.6 to look up known CVEs
+
+Phase 2: Web Application Scanning...
+▶ Executing: nikto
+  nikto -h http://scanme.nmap.org -output nikto_results.txt
+...
+```
+
+**Agent Commands:**
+| Command | Description |
+|---------|-------------|
+| `/agent <target>` | Start new assessment |
+| `/step` | Execute next agent step |
+| `/run <cmd>` | Run a tool manually |
+| `/findings` | Show all findings |
+| `/stop` | Stop assessment |
+| `/export` | Generate report |
+| `/pdf` | Generate professional PDF report |
+| `/diff` | Compare two assessments (diff report) |
+| `/campaign` | Multi-target campaign management |
+| `/plugins` | List/manage/reload custom tool plugins |
+| `/continue` | Continue truncated response |
+
+### 💬 Chat Mode — Cybersecurity Q&A
+
+Interactive AI chat with deep cybersecurity knowledge, streaming responses, and conversation memory:
+
+```
+💬 hackbot> How do I test for SQL injection in a login form?
+
+HackBot:
+## SQL Injection Testing — Login Forms
+
+### 1. Manual Testing
+Try these payloads in the username/password fields:
+
+' OR '1'='1' --
+' OR '1'='1' /*
+admin'--
+' UNION SELECT NULL--
+
+### 2. Automated Testing with sqlmap
+
+sqlmap -u "http://target.com/login" --data="user=admin&pass=test" --dbs
+
+### 3. Blind SQL Injection
+
+sqlmap -u "http://target.com/login" --data="user=admin&pass=test" --level=5 --risk=3
+```
+
+**Chat features:**
+- **Streaming responses** — see output as it's generated
+- **Auto-save** — conversations are automatically saved to session history
+- **`/continue`** — resume truncated responses seamlessly
+- **Conversation summarization** — long chats are summarized to stay within context limits
+
+### 📋 Planning Mode — Assessment Planning
+
+Generate structured pentest plans with methodology, tools, and timelines:
+
+```bash
+hackbot plan example.com --type web_pentest
+```
+
+**Available Templates:**
+| Template | Description |
+|----------|-------------|
+| `web_pentest` | Web Application Penetration Test |
+| `network_pentest` | Network Penetration Test |
+| `api_pentest` | API Security Assessment |
+| `cloud_audit` | Cloud Security Audit |
+| `ad_pentest` | Active Directory Pentest |
+| `mobile_pentest` | Mobile App Pentest |
+| `red_team` | Red Team Engagement |
+| `bug_bounty` | Bug Bounty Methodology |
+
+---
+
+## 🛡️ Intelligence Modules
+
+### CVE/Exploit Lookup
+
+Real-time vulnerability intelligence powered by the NVD (National Vulnerability Database) and GitHub exploit search.
+
+```bash
+# Search by keyword
+/cve apache 2.4
+
+# Look up a specific CVE
+/cve CVE-2021-44228
+
+# Auto-map nmap output to CVEs
+/cve --nmap
+
+# Search for exploit PoCs
+/cve --exploit log4shell
+```
+
+**Capabilities:**
+| Feature | Description |
+|---------|-------------|
+| **NVD Lookup** | Search CVEs by ID with full details (CVSS score, severity, references, CWEs) |
+| **Keyword Search** | Find CVEs by software name/version with severity filtering |
+| **Nmap→CVE Mapping** | Automatically map discovered services from nmap output to known CVEs |
+| **Exploit Search** | Find proof-of-concept exploits on GitHub for any CVE or keyword |
+| **Severity Filtering** | Filter results by CRITICAL, HIGH, MEDIUM, LOW |
+| **Markdown Reports** | Generate formatted vulnerability reports |
+
+### OSINT Module
+
+Passive intelligence gathering for reconnaissance — no active scanning required.
+
+```bash
+# Full OSINT scan
+/osint example.com
+
+# Individual modules
+/osint --subs example.com        # Subdomain enumeration
+/osint --dns example.com         # DNS records
+/osint --whois example.com       # WHOIS / RDAP lookup
+/osint --tech example.com        # Technology fingerprinting
+/osint --emails example.com      # Email harvesting
+```
+
+**Capabilities:**
+| Feature | Description |
+|---------|-------------|
+| **Subdomain Enumeration** | Certificate Transparency (crt.sh) + DNS brute-force with 90+ common prefixes |
+| **DNS Records** | A, AAAA, MX, NS, TXT, CNAME, SOA records via dnspython with socket fallback |
+| **WHOIS / RDAP** | Domain registration info via RDAP protocol with traditional WHOIS fallback |
+| **Email Harvesting** | Discover email addresses from multiple passive sources |
+| **Tech Stack Fingerprinting** | Detect web servers, frameworks, CMS, and libraries from HTTP headers, cookies, and HTML |
+| **Full Scan** | Run all modules at once and generate a unified OSINT report |
+
+**Detected Technologies:**
+- **Servers:** Nginx, Apache, IIS, Express, LiteSpeed, Caddy
+- **Frameworks:** React, Vue.js, Angular, Next.js, Django, Laravel, Rails, Flask, Spring
+- **CMS:** WordPress, Drupal, Joomla, Shopify, Wix, Squarespace
+- **Languages:** PHP, ASP.NET, Java, Python, Node.js
+- **Security:** Cloudflare, AWS CloudFront, Akamai, Sucuri
+
+### Network Topology Visualizer
+
+Parse nmap or masscan scan results into an interactive network topology map.
+
+```bash
+# Auto-detect and parse from last agent scan
+/topology
+
+# Parse from a file
+/topology scan_results.txt
+
+# Parse nmap XML output
+/topology nmap_output.xml
+```
+
+**Capabilities:**
+| Feature | Description |
+|---------|-------------|
+| **Nmap Text Parsing** | Parse standard nmap `-sV` text output into graph structure |
+| **Nmap XML Parsing** | Parse nmap `-oX` XML format with full host/port/OS detail |
+| **Masscan Parsing** | Parse masscan output with host/port discovery |
+| **Auto-Detection** | Automatically detect input format (XML, nmap text, or masscan) |
+| **ASCII Rendering** | Beautiful ASCII art network map in the terminal |
+| **D3.js Visualization** | Interactive force-directed graph in the GUI with zoom, drag, and tooltips |
+| **Subnet Grouping** | Hosts automatically organized by /24 subnet |
+| **Markdown Summary** | Tabular summary of hosts, ports, services, and OS detection |
+
+**GUI Topology View:**
+```
+┌─ Network Topology ─────────────────────────────────────────┐
+│                                                             │
+│           [Scanner]                                         │
+│          /    |    \                                        │
+│   [192.168.1.0/24] [10.0.0.0/24]                          │
+│     /    |    \        |    \                               │
+│  [.1]  [.10] [.50]  [.1]  [.100]                          │
+│  3 ports 5 ports     2 ports                               │
+│                                                             │
+│  Hosts: 5 │ Services: 18 │ Subnets: 2                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Compliance Mapping
+
+Automatically map security findings to compliance framework controls with gap analysis.
+
+```bash
+# Map all agent findings to all 4 frameworks
+/compliance
+
+# Filter by specific frameworks
+/compliance pci nist
+/compliance owasp
+/compliance pci iso
+```
+
+**Supported Frameworks:**
+| Framework | Version | Controls | Description |
+|-----------|---------|----------|-------------|
+| **PCI DSS** | v4.0 | 22 | Payment Card Industry Data Security Standard |
+| **NIST 800-53** | Rev 5 | 22 | Security and Privacy Controls for Information Systems |
+| **OWASP Top 10** | 2021 | 10 | Web Application Security Risks |
+| **ISO 27001** | 2022 | 19 | Information Security Management System (Annex A) |
+
+**Mapping Capabilities:**
+| Feature | Description |
+|---------|-------------|
+| **Auto-Detection** | 15 keyword/regex rules match findings to controls (SQLi, XSS, SSRF, auth, crypto, etc.) |
+| **Severity Mapping** | Critical/High → FAIL, Medium → rule default, Low/Info → WARN |
+| **Framework Filtering** | Map to specific frameworks or all four at once |
+| **Deduplication** | Same control + finding pair only appears once |
+| **Executive Summary** | Per-framework pass/fail/warn counts with percentages |
+| **Gap Analysis** | Top failing control families, compliance coverage statistics |
+| **GUI Dashboard** | Summary cards with progress bars, collapsible per-framework tables with status icons |
+
+**Report Output:**
+```
+📋 Compliance Mapping Report
+
+| Framework          | Fail | Warn | Pass | Not Tested |
+|--------------------|------|------|------|------------|
+| PCI DSS v4.0       | 8    | 3    | 0    | 0          |
+| NIST 800-53 Rev 5  | 7    | 2    | 0    | 0          |
+| OWASP Top 10 (2021)| 5    | 1    | 0    | 0          |
+| ISO 27001:2022     | 6    | 2    | 0    | 0          |
+
+Gap Analysis:
+- 26 controls failing (76% of mapped controls)
+- Top Failing: Secure Development (5), Access Control (4), Injection (3)
+```
+
+### Professional PDF Reports
+
+Generate polished, paginated PDF pentest reports with charts and executive summaries.
+
+```bash
+# Generate PDF report from agent findings
+/pdf
+
+# Or use /export with pdf format
+/export pdf
+```
+
+**PDF Report Contents:**
+| Section | Description |
+|---------|-------------|
+| **Cover Page** | Target, date, scope, severity summary cards |
+| **Table of Contents** | Sections and findings index with severity indicators |
+| **Executive Summary** | Risk assessment, overall rating, severity counts table |
+| **Severity Bar Chart** | Horizontal bar chart of findings by severity |
+| **Donut Chart** | Proportional severity breakdown with total count |
+| **Risk Matrix** | 5×5 heat-map (severity × likelihood) with finding counts |
+| **Detailed Findings** | Per-finding: description, evidence (code blocks), recommendations |
+| **Compliance Mapping** | Auto-generated PCI DSS / NIST / OWASP / ISO control tables |
+| **Tool Execution Log** | Full command history with status, duration, exit codes |
+| **Page Footer** | Page numbers, confidentiality notice on every page |
+
+**Installation:**
+```bash
+pip install 'hackbot[pdf]'    # Installs reportlab + matplotlib + Pillow
+```
+
+---
+
+### 🔀 Diff Reports
+
+Compare two assessments of the same target to instantly see what changed — which vulnerabilities are new, which were fixed, and which persist across scans.
+
+```
+# List agent sessions with findings
+/diff
+
+# Compare two specific sessions
+/diff agent_1707000000 agent_1707100000
+
+# Compare a saved baseline against the current live assessment
+/diff agent_1707000000
+```
+
+**Diff Report Output:**
+
+| Section | Description |
+|---------|-------------|
+| **Comparison Overview** | Side-by-side session metadata (dates, total findings, risk scores) |
+| **Overall Trend** | Improved 📉 / Degraded 📈 / Unchanged ➡️ with risk score delta |
+| **Severity Breakdown** | Per-severity counts with ↑↓ change indicators |
+| **🆕 New Vulnerabilities** | Findings that appeared in the newer assessment |
+| **✅ Fixed Vulnerabilities** | Findings that were remediated since the baseline |
+| **⚠️ Persistent Vulnerabilities** | Findings that remain unresolved (includes severity changes) |
+| **🔴 Regressions** | Previously fixed findings that have reappeared |
+
+**Matching Engine:** Findings are matched across assessments using a token-based similarity algorithm on title, description, and tool. Exact title matches score 1.0; partial matches use Jaccard similarity with a tool-name boost. Threshold: 0.65.
+
+**GUI:** The Diff Report panel provides two dropdown selectors (baseline vs. current) with a "Compare" button. Results render as interactive cards with color-coded severity badges, trend indicators, and collapsible finding sections.
+
+---
+
+## 🧩 Custom Plugins
+
+HackBot supports a Python plugin system that lets you register your own scripts as agent-callable tools. The AI agent can invoke your plugins during assessments just like built-in tools.
+
+### Plugin Directory
+
+Plugins are Python files placed in `~/.config/hackbot/plugins/`. HackBot auto-discovers them on startup.
+
+### Writing a Plugin
+
+**Method 1: Decorator (recommended)**
+
+```python
+# ~/.config/hackbot/plugins/port_check.py
+from hackbot.core.plugins import hackbot_plugin
+
+@hackbot_plugin(
+    name="port_check",
+    description="Check if a TCP port is open on a target host",
+    args={"host": "Target hostname or IP", "port": "TCP port number"},
+    category="recon",
+    author="Your Name",
+    version="1.0.0",
+)
+def run(host: str, port: str = "80") -> str:
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(3)
+    result = sock.connect_ex((host, int(port)))
+    sock.close()
+    return f"Port {port} on {host}: {'OPEN' if result == 0 else 'CLOSED'}"
+```
+
+**Method 2: Register function**
+
+```python
+# ~/.config/hackbot/plugins/http_headers.py
+from hackbot.core.plugins import PluginDefinition
+
+def register() -> PluginDefinition:
+    return PluginDefinition(
+        name="http_headers",
+        description="Fetch and analyze HTTP security headers",
+        args={"url": "Target URL"},
+        run=check_headers,
+    )
+
+def check_headers(url: str) -> str:
+    # Your analysis logic here
+    return "Results..."
+```
+
+### Managing Plugins
+
+| Command | Description |
+|---------|-------------|
+| `/plugins` | List all registered plugins |
+| `/plugins reload` | Rediscover plugins after adding/removing files |
+| `/plugins dir` | Show the plugins directory path |
+
+### Agent Integration
+
+The AI agent automatically sees available plugins and can call them during assessments:
+
+```json
+{"action": "execute", "tool": "hackbot-plugin",
+ "command": "hackbot-plugin port_check --host 10.0.0.1 --port 22",
+ "explanation": "Check if SSH is open on the target"}
+```
+
+**GUI:** The Plugins panel lists all registered plugins with description, arguments, version, and category. Each plugin card has inline argument inputs and a "Run" button for manual execution, with live output rendering.
+
+See [examples/plugins/](examples/plugins/) for complete example plugins.
+
+### Multi-Target Campaigns
+
+Define a scope with multiple hosts or URLs and run coordinated security assessments across all of them. The campaign system tracks progress per-target, shares intelligence between targets, and aggregates findings into a unified report.
+
+```bash
+# Create a campaign with multiple targets
+/campaign new "Internal Audit Q1" 192.168.1.1 192.168.1.2 app.internal.com
+
+# Add more targets
+/campaign add 10.0.0.1 10.0.0.2
+
+# Start the campaign (begins first target assessment)
+/campaign start
+
+# Complete current target, advance to the next
+/campaign next
+
+# Skip a target
+/campaign skip
+
+# View campaign progress
+/campaign status
+
+# View aggregated findings across all targets
+/campaign findings
+
+# Export campaign report
+/campaign report
+
+# Pause / resume / abort
+/campaign pause
+/campaign resume
+/campaign abort
+
+# List and load saved campaigns
+/campaign list
+/campaign load <id>
+```
+
+**Key capabilities:**
+- **Cross-target intelligence** — findings from previous targets are shared with the agent for subsequent assessments
+- **Per-target tracking** — status (pending/running/completed/failed/skipped), findings, duration, step count
+- **Coordinated reporting** — severity summary, per-target breakdown, critical/high finding details
+- **Full lifecycle** — draft → running → paused → completed/aborted with save/restore support
+- **GUI dashboard** — create campaigns, monitor target progress, view findings, and export reports from the Campaigns panel
+
+---
+
+## 🧠 Memory & Sessions
+
+HackBot automatically saves your conversations and provides full session management.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Auto-Save** | Conversations are automatically saved after each interaction |
+| **Session History** | Browse all past sessions with timestamps, modes, and message counts |
+| **Session Restore** | Reload any previous conversation and continue where you left off |
+| **`/continue`** | Seamlessly resume truncated AI responses |
+| **Conversation Summarization** | Long conversations are automatically summarized to stay within context limits |
+| **Search** | Search sessions by keyword, mode, or date |
+
+### Commands
+
+```bash
+/save [name]             # Save current session with optional name
+/load [session_id]       # Load a previous session
+/sessions                # List all saved sessions
+/sessions --mode agent   # Filter sessions by mode
+/sessions --search nmap  # Search sessions by keyword
+/continue                # Continue a truncated response
+/clear                   # Clear current conversation
+/reset                   # Full reset (clear + new session)
+```
+
+### GUI Session Panel
+
+The GUI sidebar shows your session history and allows one-click restore or deletion. Sessions display:
+- Session ID and custom name
+- Mode (Chat / Agent / Plan)
+- Message count and timestamp
+- First message preview
+
+---
+
+## 🌍 AI Providers
+
+HackBot supports **10 AI providers** out of the box. Switch providers instantly with a single command.
+
+### Supported Providers
+
+| Provider | Models | Env Variable | Notes |
+|----------|--------|-------------|-------|
+| **OpenAI** | GPT-4o, GPT-4o Mini, o1, o3-mini | `OPENAI_API_KEY` | Recommended default |
+| **Anthropic** | Claude Opus 4, Claude Sonnet 4, Claude 3.5 | `ANTHROPIC_API_KEY` | Excellent for security analysis |
+| **Google Gemini** | Gemini 2.5 Pro, 2.5 Flash | `GEMINI_API_KEY` | Up to 1M context window |
+| **Groq** | LLaMA 3.3 70B, Mixtral | `GROQ_API_KEY` | Ultra-fast inference |
+| **Mistral** | Mistral Large, Codestral | `MISTRAL_API_KEY` | Strong code analysis |
+| **DeepSeek** | DeepSeek V3, DeepSeek R1 | `DEEPSEEK_API_KEY` | Reasoning models |
+| **Together AI** | LLaMA 3.1 405B, Qwen 2.5 | `TOGETHER_API_KEY` | Large open models |
+| **OpenRouter** | Multi-provider access | `OPENROUTER_API_KEY` | One key, many providers |
+| **Ollama** | LLaMA 3.2, Mistral, CodeLLaMA | — | 100% local, no API key needed |
+| **Local** | Any OpenAI-compatible server | — | Custom endpoints |
+
+### Switching Providers
+
+```bash
+# CLI flags
+hackbot --provider anthropic --model claude-sonnet-4-20250514
+
+# Inside the app
+/provider groq
+/model llama-3.3-70b-versatile
+
+# List available providers and models
+/providers
+/models
+/models openai
+
+# Environment variables
+export HACKBOT_PROVIDER=anthropic
+export HACKBOT_API_KEY=sk-ant-...
+export HACKBOT_MODEL=claude-sonnet-4-20250514
+```
+
+### Using Local Models (Ollama)
+
+```bash
+# Install Ollama: https://ollama.ai
+ollama pull llama3.2
+
+# Use with HackBot
+hackbot --provider ollama --model llama3.2
+```
+
+No API key needed — runs entirely on your hardware.
+
+---
+
+## ⌨️ All Commands
+
+### Core Commands
+
+| Command | Description |
+|---------|-------------|
+| `/chat` | Switch to Chat Mode |
+| `/agent <target>` | Start Agent Mode assessment |
+| `/plan` | Switch to Planning Mode |
+| `/run <command>` | Execute a security tool |
+| `/help` | Show help |
+| `/quit` | Exit |
+
+### Agent Commands
+
+| Command | Description |
+|---------|-------------|
+| `/step` | Execute next agent step |
+| `/findings` | Show all findings |
+| `/stop` | Stop assessment |
+| `/export [format]` | Export report (html/md/json/pdf) |
+| `/pdf` | Professional PDF pentest report |
+| `/diff [old] [new]` | Compare two assessments (shows new/fixed/persistent findings) |
+| `/campaign new <name> <targets>` | Create a new multi-target campaign |
+| `/campaign start` | Start the active campaign |
+| `/campaign next` | Complete current target, advance to next |
+| `/campaign status` | Show campaign progress dashboard |
+| `/campaign findings` | Show aggregated findings across all targets |
+| `/campaign report` | Export campaign report |
+| `/campaign pause/resume/abort` | Campaign lifecycle control |
+| `/campaign list` | List all saved campaigns |
+
+### Intelligence Commands
+
+| Command | Description |
+|---------|-------------|
+| `/cve <query>` | CVE/exploit lookup (keyword, CVE ID, or `--nmap` for auto-mapping) |
+| `/osint <domain>` | OSINT recon (`--subs`, `--dns`, `--whois`, `--tech`, `--emails`, or full scan) |
+| `/topology [file]` | Network topology from scan output (auto-loads from agent if no args) |
+
+### Session & Memory Commands
+
+| Command | Description |
+|---------|-------------|
+| `/save [name]` | Save session |
+| `/load [name]` | Load session |
+| `/sessions` | List all sessions |
+| `/continue` | Continue truncated response |
+| `/clear` | Clear history |
+| `/reset` | Full reset |
+
+### Provider & Config Commands
+
+| Command | Description |
+|---------|-------------|
+| `/provider <name>` | Switch AI provider |
+| `/model <name>` | Switch AI model |
+| `/models [provider]` | List available models |
+| `/providers` | List all providers |
+| `/key <key>` | Set API key |
+| `/config` | Show config |
+| `/tools` | List detected security tools |
+
+### Planning Commands
+
+| Command | Description |
+|---------|-------------|
+| `/plan` | Enter planning mode |
+| `/templates` | List plan templates |
+| `/checklist <type>` | Generate testing checklist |
+| `/commands <target>` | Generate ready-to-use commands |
+
+---
+
+## ⚙️ Configuration
+
+### Config File
+Located at `~/.config/hackbot/config.yaml` (Linux/macOS) or `%APPDATA%/hackbot/config.yaml` (Windows).
+
+```yaml
+ai:
+  provider: openai          # openai, anthropic, gemini, groq, mistral, deepseek, together, openrouter, ollama, local
+  model: gpt-4o            # AI model name
+  api_key: sk-...          # Your API key
+  base_url: ""             # Custom API endpoint
+  temperature: 0.2
+  max_tokens: 4096
+
+agent:
+  auto_confirm: false       # Auto-confirm risky commands
+  max_steps: 50            # Max agent steps per assessment
+  timeout: 300             # Command timeout (seconds)
+  safe_mode: true          # Enable safety checks
+  allowed_tools:           # Whitelist of allowed tools
+    - nmap
+    - nikto
+    - sqlmap
+    - nuclei
+    # ... etc
+
+reporting:
+  format: html             # html, markdown, json, pdf
+  auto_save: true
+  include_raw_output: true
+
+ui:
+  theme: dark
+  show_banner: true
+  verbose: false
+```
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `HACKBOT_API_KEY` | AI API key (highest priority) |
+| `OPENAI_API_KEY` | OpenAI API key (fallback) |
+| `HACKBOT_MODEL` | Override AI model |
+| `HACKBOT_PROVIDER` | Override AI provider |
+| `HACKBOT_BASE_URL` | Override API endpoint |
+
+---
+
+## 🐳 Docker
+
+### Build & Run
+
+```bash
+# Build
+docker build -t hackbot .
+
+# Interactive mode
+docker run -it \
+  -e HACKBOT_API_KEY=sk-your-key \
+  --network host \
+  --cap-add NET_RAW \
+  hackbot
+
+# Agent mode directly
+docker run -it \
+  -e HACKBOT_API_KEY=sk-your-key \
+  --network host \
+  --cap-add NET_RAW \
+  hackbot agent scanme.nmap.org
+
+# With docker-compose
+HACKBOT_API_KEY=sk-your-key docker-compose run hackbot
+```
+
+### Docker includes:
+- All Python dependencies
+- nmap, nikto, dirb, hydra, john, sslscan
+- nuclei, subfinder, httpx, ffuf (Go tools)
+- sqlmap, wfuzz (Python tools)
+
+---
+
+## 🔧 Supported Security Tools
+
+HackBot integrates with 30+ security tools:
+
+| Category | Tools |
+|----------|-------|
+| **Scanning** | nmap, masscan |
+| **Web Testing** | nikto, dirb, gobuster, ffuf, wfuzz, whatweb |
+| **Vulnerability** | nuclei, sqlmap |
+| **Recon** | subfinder, amass, httpx, whois, dig |
+| **Password** | hydra, john, hashcat |
+| **SSL/TLS** | testssl, sslscan, openssl |
+| **Network** | netcat, traceroute, ping, curl, wget |
+
+Check what's installed:
+```bash
+hackbot tools
+```
+
+---
+
+## 🏗️ Architecture
+
+```
+hackbot/
+├── __init__.py          # Package metadata
+├── cli.py               # Main CLI with interactive REPL (40+ commands)
+├── config.py            # Configuration management
+├── memory.py            # Session memory & conversation summarization
+├── reporting.py         # Report generation (HTML/MD/JSON)
+├── core/
+│   ├── engine.py        # AI engine — 10 providers, LLM communication
+│   ├── runner.py        # Tool execution (subprocess management)
+│   ├── cve.py           # CVE/exploit lookup (NVD + GitHub)
+│   ├── osint.py         # OSINT recon (subdomains, DNS, WHOIS, tech stack)
+│   ├── topology.py      # Network topology parser & visualizer
+│   ├── compliance.py    # Compliance mapping (PCI DSS, NIST, OWASP, ISO)
+│   ├── campaigns.py     # Multi-target campaign system (orchestration, reporting)
+│   ├── diff_report.py   # Assessment diff engine (new/fixed/persistent findings)
+│   ├── pdf_report.py    # Professional PDF report generator
+│   └── plugins.py       # Custom plugin system (decorator + register patterns)
+├── modes/
+│   ├── chat.py          # Chat mode (Q&A + auto-save + /continue)
+│   ├── agent.py         # Agent mode (autonomous testing + memory)
+│   └── plan.py          # Planning mode (8 templates)
+├── gui/
+│   ├── app.py           # Flask backend (25+ API routes, SSE streaming)
+│   └── templates/
+│       └── index.html   # Single-page frontend (dark theme, D3.js, panels)
+└── ui/
+    └── __init__.py      # Rich terminal UI components
+```
+
+### API Endpoints (GUI Backend)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/status` | GET | App status and current mode |
+| `/api/providers` | GET | List all AI providers |
+| `/api/tools` | GET | List detected security tools |
+| `/api/config` | GET/POST | Read or update configuration |
+| `/api/mode` | POST | Switch mode (chat/agent/plan) |
+| `/api/chat` | POST | Send chat message (SSE stream) |
+| `/api/chat/continue` | POST | Continue truncated response |
+| `/api/sessions` | GET | List saved sessions |
+| `/api/sessions/<id>` | GET/DELETE | Get or delete a session |
+| `/api/sessions/restore/<id>` | POST | Restore a session |
+| `/api/agent/start` | POST | Start agent assessment |
+| `/api/agent/step` | POST | Execute next agent step |
+| `/api/agent/run` | POST | Run a tool manually |
+| `/api/agent/findings` | GET | Get current findings |
+| `/api/cve/lookup` | POST | Look up a specific CVE |
+| `/api/cve/search` | POST | Search CVEs by keyword |
+| `/api/cve/exploits` | POST | Search exploit PoCs |
+| `/api/cve/nmap` | POST | Map nmap output to CVEs |
+| `/api/osint/scan` | POST | Full OSINT scan (SSE) |
+| `/api/osint/subdomains` | POST | Subdomain enumeration |
+| `/api/osint/dns` | POST | DNS record lookup |
+| `/api/osint/whois` | POST | WHOIS / RDAP lookup |
+| `/api/osint/techstack` | POST | Technology fingerprinting |
+| `/api/topology/parse` | POST | Parse scan output to topology |
+| `/api/topology/from-agent` | GET | Get topology from agent scans |
+| `/api/campaigns` | GET/POST | List all or create a campaign |
+| `/api/campaigns/<id>` | GET/DELETE | Get or delete a campaign |
+| `/api/campaigns/<id>/activate` | POST | Set campaign as active |
+| `/api/campaigns/active` | GET | Get active campaign state |
+| `/api/campaigns/active/start` | POST | Start/resume campaign |
+| `/api/campaigns/active/start-target` | POST | Assess a target (SSE stream) |
+| `/api/campaigns/active/complete-target` | POST | Mark target as completed |
+| `/api/campaigns/active/skip-target` | POST | Skip a target |
+| `/api/campaigns/active/pause` | POST | Pause campaign |
+| `/api/campaigns/active/abort` | POST | Abort campaign |
+| `/api/campaigns/active/findings` | GET | Aggregated findings |
+| `/api/campaigns/active/report` | POST | Save campaign report |
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+python -m pytest tests/ -v
+
+# Run specific test modules
+python -m pytest tests/test_intel.py -v     # CVE, OSINT, Topology tests
+python -m pytest tests/test_engine.py -v    # AI engine tests
+python -m pytest tests/test_modes.py -v     # Mode tests
+python -m pytest tests/test_memory.py -v    # Memory & session tests
+python -m pytest tests/test_runner.py -v    # Tool runner tests
+python -m pytest tests/test_config.py -v    # Config tests
+```
+
+**384 tests** across 11 test files covering all modules.
+
+---
+
+## ⚠️ Disclaimer
+
+> **HackBot is designed for authorized security testing only.**
+>
+> - Always obtain explicit written permission before testing any system
+> - Follow responsible disclosure practices
+> - Comply with all applicable laws and regulations
+> - The developers are not responsible for misuse
+>
+> **Never use this tool against systems you don't own or have authorization to test.**
+
+---
+
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Built for ethical hackers, by ethical hackers. 🛡️**
+
+[Report Bug](https://github.com/yashab-cyber/hackbot/issues) • [Request Feature](https://github.com/yashab-cyber/hackbot/issues)
+
+</div>

@@ -1,0 +1,19 @@
+# hackbot
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.env
+.env.*
+*.pem
+*.key
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.vscode/
+.idea/
+*.swp
+*~

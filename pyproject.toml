@@ -1,0 +1,104 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hackbot"
+version = "1.0.0"
+description = "HackBot — Production-ready AI cybersecurity assistant with Agent, Chat & Planning modes"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "HackBot Team"},
+]
+keywords = ["cybersecurity", "pentesting", "ai", "hacking", "security"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+]
+dependencies = [
+    "click>=8.1",
+    "rich>=13.0",
+    "prompt_toolkit>=3.0",
+    "openai>=1.10",
+    "pyyaml>=6.0",
+    "jinja2>=3.1",
+    "requests>=2.31",
+    "python-nmap>=0.7",
+    "aiohttp>=3.9",
+    "pydantic>=2.5",
+    "python-dotenv>=1.0",
+    "platformdirs>=4.0",
+    "markdown-it-py>=3.0",
+]
+
+[project.optional-dependencies]
+gui = [
+    "flask>=3.0",
+    "pywebview>=5.0",
+]
+pdf = [
+    "reportlab>=4.0",
+    "matplotlib>=3.7",
+    "Pillow>=10.0",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23",
+    "mypy>=1.8",
+    "ruff>=0.2",
+    "black>=24.0",
+]
+all = [
+    "flask>=3.0",
+    "pywebview>=5.0",
+    "reportlab>=4.0",
+    "matplotlib>=3.7",
+    "Pillow>=10.0",
+    "shodan>=1.30",
+    "censys>=2.2",
+    "dnspython>=2.5",
+    "scapy>=2.5",
+    "paramiko>=3.4",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.1",
+]
+
+[project.scripts]
+hackbot = "hackbot.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/yashab-cyber/hackbot"
+Repository = "https://github.com/yashab-cyber/hackbot"
+Issues = "https://github.com/yashab-cyber/hackbot/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hackbot*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
