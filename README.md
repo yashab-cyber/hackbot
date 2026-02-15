@@ -710,15 +710,15 @@ HackBot supports **10 AI providers** out of the box. Switch providers instantly 
 
 | Provider | Models | Env Variable | Notes |
 |----------|--------|-------------|-------|
-| **OpenAI** | GPT-4o, GPT-4o Mini, o1, o3-mini | `OPENAI_API_KEY` | Recommended default |
-| **Anthropic** | Claude Opus 4, Claude Sonnet 4, Claude 3.5 | `ANTHROPIC_API_KEY` | Excellent for security analysis |
-| **Google Gemini** | Gemini 2.5 Pro, 2.5 Flash | `GEMINI_API_KEY` | Up to 1M context window |
-| **Groq** | LLaMA 3.3 70B, Mixtral | `GROQ_API_KEY` | Ultra-fast inference |
-| **Mistral** | Mistral Large, Codestral | `MISTRAL_API_KEY` | Strong code analysis |
+| **OpenAI** | GPT-5.2, GPT-5.1, GPT-5.2 Codex, GPT-4o, o3-mini | `OPENAI_API_KEY` | Latest flagship models |
+| **Anthropic** | Claude Opus 4.6, Opus 4.5, Sonnet 4, Opus 4 | `ANTHROPIC_API_KEY` | Top research & code |
+| **Google Gemini** | Gemini 3 Pro, 3 Flash, 2.5 Pro | `GEMINI_API_KEY` | Up to 1M context window |
+| **Groq** | LLaMA 3.3 70B, 3.1 405B, Mixtral | `GROQ_API_KEY` | Ultra-fast inference |
+| **Mistral** | Mistral Large 2, Codestral, Nemo | `MISTRAL_API_KEY` | Strong multilingual & code |
 | **DeepSeek** | DeepSeek V3, DeepSeek R1 | `DEEPSEEK_API_KEY` | Reasoning models |
-| **Together AI** | LLaMA 3.1 405B, Qwen 2.5 | `TOGETHER_API_KEY` | Large open models |
-| **OpenRouter** | Multi-provider access | `OPENROUTER_API_KEY` | One key, many providers |
-| **Ollama** | LLaMA 3.2, Mistral, CodeLLaMA | — | 100% local, no API key needed |
+| **Together AI** | LLaMA 3.1 405B, Qwen 2.5, Mistral Large 2 | `TOGETHER_API_KEY` | Large open models |
+| **OpenRouter** | All top models via one API | `OPENROUTER_API_KEY` | One key, many providers |
+| **Ollama** | LLaMA 3.1 405B/70B, Vicuna, GLM-4 | — | 100% local, no API key needed |
 | **Local** | Any OpenAI-compatible server | — | Custom endpoints |
 
 ### Switching Providers
