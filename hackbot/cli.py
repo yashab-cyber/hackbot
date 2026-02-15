@@ -142,6 +142,7 @@ class HackBotApp:
             "/help": lambda: (show_help(), True)[1],
             "/version": lambda: (self._show_version(), True)[1],
             "/donate": lambda: (self._show_donate(), True)[1],
+            "/manual": lambda: (self._show_manual(), True)[1],
             "/chat": lambda: self._switch_mode("chat"),
             "/agent": lambda: self._start_agent(args),
             "/plan": lambda: self._switch_mode("plan"),
@@ -329,6 +330,24 @@ class HackBotApp:
         console.print("\n[dim]For donation inquiries, sponsorship, or collaboration —[/]")
         console.print("[dim]reach out through any of the links above.[/]")
         console.print("[dim]See DONATE.md for more details.[/]\n")
+
+    def _show_manual(self) -> None:
+        console.print("\n[bold bright_cyan]📖  HackBot User Manual[/]\n")
+        console.print("The complete manual is available online and in the [bold]manual/[/] folder.\n")
+        console.print("[bold]Online:[/]  [underline]https://github.com/yashab-cyber/hackbot/tree/main/manual[/]")
+        console.print("[bold]Local:[/]   manual/README.md\n")
+        console.print("[bold]Sections:[/]")
+        console.print("  1. Getting Started        — Installation, first run, setup")
+        console.print("  2. CLI Reference          — All interactive & terminal commands")
+        console.print("  3. GUI Reference          — All panels, features, API endpoints")
+        console.print("  4. Modes                  — Chat, Agent, Plan modes in depth")
+        console.print("  5. Intelligence Modules   — CVE, OSINT, Topology, Compliance, etc.")
+        console.print("  6. AI Providers           — 10 providers and their models")
+        console.print("  7. Reporting              — HTML, Markdown, JSON, PDF reports")
+        console.print("  8. Memory & Sessions      — Auto-save, /continue, summarization")
+        console.print("  9. Configuration          — All options, paths, env variables")
+        console.print("  10. Troubleshooting       — Common issues and solutions")
+        console.print("")
 
     def _set_key(self, key: str) -> bool:
         if not key:

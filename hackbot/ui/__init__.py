@@ -277,6 +277,7 @@ def show_help() -> None:
   /campaign          Multi-target campaign management
   /version           Show version info
   /donate            Show donation & contact info
+  /manual            Open the HackBot user manual
   /quit              Exit HackBot
 """
     console.print(help_text)
