@@ -40,6 +40,7 @@
 | 🔀 **Diff Reports** | Compare two assessments — see new, fixed, and persistent vulnerabilities at a glance |
 | 🎯 **Multi-Target Campaigns** | Define a scope with multiple hosts/URLs and run coordinated assessments across all of them |
 | 🧩 **Custom Plugins** | Python plugin system — register your own scripts as agent-callable tools |
+| 🔧 **AI Remediation Engine** | Auto-generate fix commands, config patches, and code snippets for each finding |
 | 🧠 **Memory & Sessions** | Auto-save conversations, session history, `/continue` truncated responses, conversation summarization |
 | 🌍 **10 AI Providers** | OpenAI, Anthropic, Google Gemini, Groq, Mistral, DeepSeek, Together AI, OpenRouter, Ollama, Local |
 | 🔧 **30+ Tool Integrations** | nmap, nikto, sqlmap, nuclei, ffuf, subfinder, hydra, gobuster, and more |
@@ -73,6 +74,7 @@ hackbot gui
 - **Diff report panel** — Compare two assessments side-by-side to see new, fixed, and persistent vulnerabilities with trend analysis
 - **Campaign dashboard** — Create, manage, and monitor multi-target campaigns with progress tracking, target status, and coordinated findings
 - **Plugin manager** — Browse, reload, and execute custom plugins with argument inputs and live output
+- **Remediation panel** — One-click fix generation for findings with copyable commands, config patches, and code snippets
 - **PDF export** — One-click professional PDF report generation with charts and executive summary from the agent panel
 - **Markdown rendering** — Full markdown support with syntax highlighting in responses
 - **Native OS window** — Powered by pywebview for a true desktop application feel
@@ -369,6 +371,7 @@ Phase 2: Web Application Scanning...
 | `/pdf` | Generate professional PDF report |
 | `/diff` | Compare two assessments (diff report) |
 | `/campaign` | Multi-target campaign management |
+| `/remediate` | Generate fix commands/patches for findings |
 | `/plugins` | List/manage/reload custom tool plugins |
 | `/continue` | Continue truncated response |
 
@@ -645,6 +648,37 @@ Compare two assessments of the same target to instantly see what changed — whi
 
 **GUI:** The Diff Report panel provides two dropdown selectors (baseline vs. current) with a "Compare" button. Results render as interactive cards with color-coded severity badges, trend indicators, and collapsible finding sections.
 
+### AI Remediation Engine
+
+Auto-generate actionable fix commands, configuration patches, and code snippets for each security finding.
+
+```bash
+# Remediate all findings
+/remediate
+
+# Remediate a specific finding
+/remediate 3
+
+# AI-enhanced remediation (uses your configured LLM)
+/remediate --ai
+```
+
+**Capabilities:**
+| Feature | Description |
+|---------|-------------|
+| **Rule-Based Engine** | 20+ built-in vulnerability rules — instant remediation with no API key required |
+| **AI-Enhanced Mode** | Falls back to LLM for tailored fixes when `--ai` flag is used |
+| **Fix Commands** | Shell commands (apt, systemctl, ufw, iptables, etc.) ready to copy-paste |
+| **Config Patches** | Nginx, Apache, sshd_config, BIND, SNMP patches with file paths |
+| **Code Snippets** | Python, PHP, Java, JavaScript fix examples with vulnerable vs. secure patterns |
+| **Multi-Language** | Each finding gets fixes in multiple languages/frameworks |
+| **References** | OWASP, NIST, CIS Benchmark, and MDN links for each remediation |
+| **Priority Mapping** | Severity → priority: Critical→Immediate, High→High, Medium→Medium, Low→Low |
+
+**Covered vulnerability types:** SQL injection, XSS, command injection, path traversal, CSRF, SSL/TLS misconfiguration, missing security headers, weak credentials, SSH hardening, information disclosure, outdated software, CORS, IDOR/broken access control, file upload, XXE, SSRF, insecure deserialization, DNS zone transfer, SNMP defaults, exposed admin panels, and more.
+
+**GUI:** The Findings panel includes a "🔧 Remediate" button that generates remediation cards with copyable fix commands, config patches, and code snippets — all color-coded by priority.
+
 ---
 
 ## 🧩 Custom Plugins
@@ -892,6 +926,9 @@ No API key needed — runs entirely on your hardware.
 | `/campaign report` | Export campaign report |
 | `/campaign pause/resume/abort` | Campaign lifecycle control |
 | `/campaign list` | List all saved campaigns |
+| `/remediate` | Generate remediations for all findings |
+| `/remediate #` | Remediate a specific finding by number |
+| `/remediate --ai` | Use AI for enhanced remediation guidance |
 
 ### Intelligence Commands
 
@@ -1058,7 +1095,8 @@ hackbot/
 │   ├── campaigns.py     # Multi-target campaign system (orchestration, reporting)
 │   ├── diff_report.py   # Assessment diff engine (new/fixed/persistent findings)
 │   ├── pdf_report.py    # Professional PDF report generator
-│   └── plugins.py       # Custom plugin system (decorator + register patterns)
+│   ├── plugins.py       # Custom plugin system (decorator + register patterns)
+│   └── remediation.py   # AI Remediation Engine (20+ vulnerability rules)
 ├── modes/
 │   ├── chat.py          # Chat mode (Q&A + auto-save + /continue)
 │   ├── agent.py         # Agent mode (autonomous testing + memory)
@@ -1112,6 +1150,7 @@ hackbot/
 | `/api/campaigns/active/abort` | POST | Abort campaign |
 | `/api/campaigns/active/findings` | GET | Aggregated findings |
 | `/api/campaigns/active/report` | POST | Save campaign report |
+| `/api/agent/remediate` | POST | Generate remediation guidance for findings |
 
 ---
 

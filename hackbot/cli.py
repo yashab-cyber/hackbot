@@ -41,6 +41,7 @@ from hackbot.core.campaigns import (
     Campaign, CampaignManager, CampaignStatus, TargetStatus,
     get_campaign_manager, reset_campaign_manager,
 )
+from hackbot.core.remediation import RemediationEngine
 from hackbot.core.topology import TopologyParser
 from hackbot.modes.agent import AgentMode
 from hackbot.modes.chat import ChatMode
@@ -171,6 +172,7 @@ class HackBotApp:
             "/diff": lambda: self._diff_report(args),
             "/plugins": lambda: self._show_plugins(args),
             "/campaign": lambda: self._handle_campaign(args),
+            "/remediate": lambda: self._generate_remediations(args),
         }
 
         handler = commands.get(cmd)
@@ -562,6 +564,39 @@ class HackBotApp:
             return True
         summary = self.agent.get_findings_summary()
         console.print(Markdown(summary))
+        return True
+
+    def _generate_remediations(self, args: str = "") -> bool:
+        """Generate remediation guidance for findings."""
+        if not self.agent:
+            print_info("No active assessment — start one with /agent <target>")
+            return True
+        findings = [f.to_dict() for f in self.agent.findings]
+        if not findings:
+            print_info("No findings to remediate")
+            return True
+
+        use_ai = "--ai" in args
+        engine = RemediationEngine(ai_engine=self.engine if use_ai else None)
+
+        # Single finding by index
+        idx_arg = args.replace("--ai", "").strip()
+        if idx_arg.isdigit():
+            idx = int(idx_arg) - 1
+            if 0 <= idx < len(findings):
+                r = engine.remediate_finding(findings[idx], use_ai=use_ai)
+                console.print(Markdown(r.get_markdown()))
+            else:
+                print_error(f"Finding #{idx_arg} not found (1-{len(findings)})")
+            return True
+
+        # All findings
+        with console.status("[cyan]Generating remediations..."):
+            remediations = engine.remediate_findings(findings, use_ai=use_ai)
+        report = RemediationEngine.get_summary_markdown(remediations)
+        console.print(Markdown(report))
+        print_success(f"Generated {len(remediations)} remediations "
+                      f"({sum(len(r.steps) for r in remediations)} fix steps)")
         return True
 
     def _stop_agent(self) -> bool:

@@ -35,6 +35,7 @@ from hackbot.core.campaigns import (
     Campaign, CampaignManager, CampaignStatus, TargetStatus,
     get_campaign_manager, reset_campaign_manager,
 )
+from hackbot.core.remediation import RemediationEngine
 from hackbot.memory import MemoryManager
 from hackbot.modes.agent import AgentMode
 from hackbot.modes.chat import ChatMode
@@ -542,6 +543,44 @@ def api_agent_stop():
         summary = agent.stop()
         return jsonify({"ok": True, "summary": summary})
     return jsonify({"ok": False, "error": "No active assessment"})
+
+
+@app.route("/api/agent/remediate", methods=["POST"])
+def api_agent_remediate():
+    """Generate remediation guidance for findings."""
+    agent: Optional[AgentMode] = _state["agent"]
+    if not agent:
+        return jsonify({"ok": False, "error": "No active assessment"})
+    findings = [f.to_dict() for f in agent.findings]
+    if not findings:
+        return jsonify({"ok": False, "error": "No findings to remediate"})
+
+    body = request.get_json(silent=True) or {}
+    use_ai = body.get("use_ai", False)
+    finding_idx = body.get("index")  # optional: single finding
+
+    engine_inst = _state.get("engine")
+    remed = RemediationEngine(ai_engine=engine_inst if use_ai else None)
+
+    if finding_idx is not None:
+        idx = int(finding_idx)
+        if 0 <= idx < len(findings):
+            r = remed.remediate_finding(findings[idx], use_ai=use_ai)
+            return jsonify({
+                "ok": True,
+                "remediations": [r.to_dict()],
+                "markdown": r.get_markdown(),
+            })
+        return jsonify({"ok": False, "error": f"Finding index {idx} out of range"})
+
+    results = remed.remediate_findings(findings, use_ai=use_ai)
+    return jsonify({
+        "ok": True,
+        "remediations": [r.to_dict() for r in results],
+        "markdown": RemediationEngine.get_summary_markdown(results),
+        "count": len(results),
+        "total_steps": sum(len(r.steps) for r in results),
+    })
 
 
 @app.route("/api/agent/export", methods=["POST"])
