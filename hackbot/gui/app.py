@@ -1352,6 +1352,7 @@ def launch_gui(config: HackBotConfig, host: str = "127.0.0.1", port: int = 1337)
     log.setLevel(logging.WARNING)
 
     # Try native desktop window via pywebview
+    flask_started = False
     try:
         import webview  # pywebview
 
@@ -1360,6 +1361,7 @@ def launch_gui(config: HackBotConfig, host: str = "127.0.0.1", port: int = 1337)
             target=_start_flask, args=(host, port), daemon=True
         )
         flask_thread.start()
+        flask_started = True
 
         # Wait for Flask to be ready
         import urllib.request
@@ -1407,4 +1409,14 @@ def launch_gui(config: HackBotConfig, host: str = "127.0.0.1", port: int = 1337)
         webbrowser.open(url)
 
     threading.Thread(target=open_browser, daemon=True).start()
-    app.run(host=host, port=port, debug=False, threaded=True)
+
+    if flask_started:
+        # Flask is already running on this port from the pywebview attempt;
+        # just block the main thread until interrupted.
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n  HackBot stopped. Goodbye!\n")
+    else:
+        app.run(host=host, port=port, debug=False, threaded=True)
