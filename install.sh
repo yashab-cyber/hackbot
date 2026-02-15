@@ -20,6 +20,13 @@ banner() {
     echo "  ╩ ╩╩ ╩╚═╝╩ ╩╚═╝╚═╝ ╩ "
     echo -e "${NC}"
     echo -e "${CYAN}  AI Cybersecurity Assistant — Installer v${VERSION}${NC}"
+    echo -e "  ─────────────────────────────────────────────"
+    echo -e "  ${BOLD}Developed by Yashab Alam${NC}"
+    echo -e "  GitHub:   ${CYAN}https://github.com/yashab-cyber${NC}"
+    echo -e "  LinkedIn: ${CYAN}https://www.linkedin.com/in/yashab-alam${NC}"
+    echo -e "  Email:    yashabalam707@gmail.com | yashabalam9@gmail.com"
+    echo -e "  ─────────────────────────────────────────────"
+    echo -e "  ${RED}❤️  Support HackBot → https://github.com/yashab-cyber/hackbot/blob/main/DONATE.md${NC}"
     echo ""
 }
 
@@ -196,6 +203,12 @@ post_install() {
     echo "    hackbot --gui              # Launch web GUI"
     echo ""
     echo -e "  ${YELLOW}⚠️  Only test systems you have explicit authorization to test!${NC}"
+    echo ""
+    echo -e "  ${BOLD}Developed by Yashab Alam${NC}"
+    echo -e "  GitHub:   ${CYAN}https://github.com/yashab-cyber${NC}"
+    echo -e "  LinkedIn: ${CYAN}https://www.linkedin.com/in/yashab-alam${NC}"
+    echo -e "  Email:    yashabalam707@gmail.com | yashabalam9@gmail.com"
+    echo -e "  ${RED}❤️  Support: https://github.com/yashab-cyber/hackbot/blob/main/DONATE.md${NC}"
     echo ""
 }
 

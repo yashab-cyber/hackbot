@@ -15,6 +15,13 @@ echo  ^|  _  ^| (_^| ^| (__^|   ^<^| ^|_) ^| (_) ^| ^|_
 echo  ^|_^| ^|_^|\__,_^|\___^|_^|\_\____/ \___/ \__^|
 echo.
 echo   AI Cybersecurity Assistant — Installer v%VERSION%
+echo   ---------------------------------------------
+echo   Developed by Yashab Alam
+echo   GitHub:   https://github.com/yashab-cyber
+echo   LinkedIn: https://www.linkedin.com/in/yashab-alam
+echo   Email:    yashabalam707@gmail.com ^| yashabalam9@gmail.com
+echo   ---------------------------------------------
+echo   Support HackBot: https://github.com/yashab-cyber/hackbot/blob/main/DONATE.md
 echo.
 
 REM ── Check Python ───────────────────────────────────────────────────────────────
@@ -134,6 +141,12 @@ echo     hackbot tools              # Check available tools
 echo     hackbot --gui              # Launch web GUI
 echo.
 echo   WARNING: Only test systems you have explicit authorization to test!
+echo.
+echo   Developed by Yashab Alam
+echo   GitHub:   https://github.com/yashab-cyber
+echo   LinkedIn: https://www.linkedin.com/in/yashab-alam
+echo   Email:    yashabalam707@gmail.com ^| yashabalam9@gmail.com
+echo   Support:  https://github.com/yashab-cyber/hackbot/blob/main/DONATE.md
 echo.
 exit /b 0
 
