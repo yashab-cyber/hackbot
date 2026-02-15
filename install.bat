@@ -70,19 +70,19 @@ goto :usage
 :install_pip
 echo [INFO] Installing HackBot via pip...
 
-set EXTRAS=
-if "%INSTALL_GUI%"=="true" set EXTRAS=[gui]
+set EXTRAS=[all]
+if "%INSTALL_GUI%"=="true" set EXTRAS=[all]
 
 REM Try pipx first
 where pipx >nul 2>&1
 if %errorlevel% equ 0 (
     echo [INFO] Using pipx for isolated installation...
-    pipx install "git+https://github.com/%REPO%.git%EXTRAS%"
+    pipx install "hackbot%EXTRAS% @ git+https://github.com/%REPO%.git"
     if %errorlevel% equ 0 goto :post_install
     echo [WARN] pipx failed, falling back to pip...
 )
 
-%PYTHON% -m pip install --user "git+https://github.com/%REPO%.git%EXTRAS%"
+%PYTHON% -m pip install --user "hackbot%EXTRAS% @ git+https://github.com/%REPO%.git"
 if %errorlevel% neq 0 (
     echo [ERROR] Installation failed.
     exit /b 1
@@ -96,7 +96,7 @@ if not exist "pyproject.toml" (
     exit /b 1
 )
 if "%INSTALL_GUI%"=="true" (
-    %PYTHON% -m pip install --user -e ".[all,gui]"
+    %PYTHON% -m pip install --user -e ".[all,dev]"
 ) else (
     %PYTHON% -m pip install --user -e ".[all]"
 )

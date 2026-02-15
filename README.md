@@ -125,12 +125,20 @@ curl -sSL https://raw.githubusercontent.com/yashab-cyber/hackbot/main/install.sh
 ### pip (All Platforms)
 
 ```bash
+# Full install (GUI + PDF reports + all features)
+pip install "hackbot[all] @ git+https://github.com/yashab-cyber/hackbot.git"
+
+# Minimal install (CLI only, no GUI)
 pip install git+https://github.com/yashab-cyber/hackbot.git
 ```
 
 ### pipx (Isolated Install)
 
 ```bash
+# Full install (GUI + PDF reports + all features)
+pipx install "hackbot[all] @ git+https://github.com/yashab-cyber/hackbot.git"
+
+# Minimal install (CLI only, no GUI)
 pipx install git+https://github.com/yashab-cyber/hackbot.git
 ```
 
@@ -145,8 +153,8 @@ pip install -e ".[all,dev]"
 ### Windows
 
 ```powershell
-# Option 1: pip
-pip install git+https://github.com/yashab-cyber/hackbot.git
+# Option 1: pip (full install with GUI + all features)
+pip install "hackbot[all] @ git+https://github.com/yashab-cyber/hackbot.git"
 
 # Option 2: Download and run installer
 git clone https://github.com/yashab-cyber/hackbot.git
@@ -163,7 +171,104 @@ docker run -it -e HACKBOT_API_KEY=your-key hackbot
 
 ---
 
-## 🚀 Quick Start
+## � Reinstall
+
+### One-Line Install (Linux/macOS)
+
+```bash
+# Reinstall via the same installer script (overwrites previous install)
+curl -sSL https://raw.githubusercontent.com/yashab-cyber/hackbot/main/install.sh | bash
+```
+
+### pip
+
+```bash
+pip install --force-reinstall "hackbot[all] @ git+https://github.com/yashab-cyber/hackbot.git"
+```
+
+### pipx
+
+```bash
+pipx reinstall hackbot
+```
+
+### From Source (Development)
+
+```bash
+cd hackbot
+pip install -e ".[all,dev]" --force-reinstall
+```
+
+### Windows
+
+```powershell
+# Option 1: pip
+pip install --force-reinstall "hackbot[all] @ git+https://github.com/yashab-cyber/hackbot.git"
+
+# Option 2: From local source
+cd hackbot
+install.bat
+```
+
+### Docker
+
+```bash
+docker build --no-cache -t hackbot .
+```
+
+---
+
+## 🗑️ Uninstall
+
+### pip
+
+```bash
+pip uninstall hackbot
+```
+
+### pipx
+
+```bash
+pipx uninstall hackbot
+```
+
+### From Source (Development)
+
+```bash
+pip uninstall hackbot
+```
+
+### Windows
+
+```powershell
+pip uninstall hackbot
+```
+
+### Docker
+
+```bash
+# Remove the container(s)
+docker rm $(docker ps -aq --filter ancestor=hackbot)
+
+# Remove the image
+docker rmi hackbot
+```
+
+### Remove Configuration & Data
+
+After uninstalling, you can also remove saved sessions, config, and plugins:
+
+```bash
+# Linux/macOS
+rm -rf ~/.config/hackbot
+
+# Windows (PowerShell)
+Remove-Item -Recurse -Force "$env:APPDATA\hackbot"
+```
+
+---
+
+## �🚀 Quick Start
 
 ### 1. Set Your API Key
 

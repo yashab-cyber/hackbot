@@ -74,20 +74,20 @@ check_python() {
 install_pip() {
     info "Installing HackBot via pip..."
 
-    local EXTRAS=""
+    local EXTRAS="[all]"
     if [ "${INSTALL_GUI:-false}" = "true" ]; then
-        EXTRAS="[gui]"
+        EXTRAS="[all]"
     fi
 
     # Try pipx first (isolated install)
     if command -v pipx &>/dev/null; then
         info "Using pipx for isolated installation..."
-        pipx install "git+https://github.com/${REPO}.git${EXTRAS}" || {
+        pipx install "hackbot${EXTRAS} @ git+https://github.com/${REPO}.git" || {
             warn "pipx install failed, falling back to pip..."
-            $PYTHON -m pip install --user "git+https://github.com/${REPO}.git${EXTRAS}"
+            $PYTHON -m pip install --user "hackbot${EXTRAS} @ git+https://github.com/${REPO}.git"
         }
     else
-        $PYTHON -m pip install --user "git+https://github.com/${REPO}.git${EXTRAS}"
+        $PYTHON -m pip install --user "hackbot${EXTRAS} @ git+https://github.com/${REPO}.git"
     fi
 
     success "HackBot installed!"
@@ -100,7 +100,7 @@ install_local() {
     # Check if we're in the hackbot repo
     if [ -f "pyproject.toml" ] && grep -q "hackbot" pyproject.toml 2>/dev/null; then
         if [ "${INSTALL_GUI:-false}" = "true" ]; then
-            $PYTHON -m pip install --user -e ".[all,gui]"
+            $PYTHON -m pip install --user -e ".[all,dev]"
         else
             $PYTHON -m pip install --user -e ".[all]"
         fi
