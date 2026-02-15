@@ -87,6 +87,9 @@ Issues = "https://github.com/yashab-cyber/hackbot/issues"
 where = ["."]
 include = ["hackbot*"]
 
+[tool.setuptools.package-data]
+"hackbot.gui" = ["templates/**/*", "static/**/*"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py39"
