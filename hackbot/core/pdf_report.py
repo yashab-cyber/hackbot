@@ -62,23 +62,27 @@ from hackbot.config import REPORTS_DIR
 
 # ── Colour Palette ───────────────────────────────────────────────────────────
 
-_DARK_BG = colors.HexColor("#0d1117")
-_SURFACE = colors.HexColor("#161b22")
-_BORDER = colors.HexColor("#30363d")
-_TEXT = colors.HexColor("#c9d1d9")
-_TEXT_DIM = colors.HexColor("#8b949e")
-_ACCENT = colors.HexColor("#58a6ff")
-_GREEN = colors.HexColor("#3fb950")
-_WHITE = colors.white
-_BLACK = colors.black
+if HAS_REPORTLAB:
+    _DARK_BG = colors.HexColor("#0d1117")
+    _SURFACE = colors.HexColor("#161b22")
+    _BORDER = colors.HexColor("#30363d")
+    _TEXT = colors.HexColor("#c9d1d9")
+    _TEXT_DIM = colors.HexColor("#8b949e")
+    _ACCENT = colors.HexColor("#58a6ff")
+    _GREEN = colors.HexColor("#3fb950")
+    _WHITE = colors.white
+    _BLACK = colors.black
 
-SEVERITY_COLORS = {
-    "Critical": colors.HexColor("#f85149"),
-    "High": colors.HexColor("#f0883e"),
-    "Medium": colors.HexColor("#d29922"),
-    "Low": colors.HexColor("#58a6ff"),
-    "Info": colors.HexColor("#8b949e"),
-}
+    SEVERITY_COLORS = {
+        "Critical": colors.HexColor("#f85149"),
+        "High": colors.HexColor("#f0883e"),
+        "Medium": colors.HexColor("#d29922"),
+        "Low": colors.HexColor("#58a6ff"),
+        "Info": colors.HexColor("#8b949e"),
+    }
+else:
+    _DARK_BG = _SURFACE = _BORDER = _TEXT = _TEXT_DIM = _ACCENT = _GREEN = _WHITE = _BLACK = None
+    SEVERITY_COLORS = {}
 
 SEVERITY_COLORS_MPL = {
     "Critical": "#f85149",
