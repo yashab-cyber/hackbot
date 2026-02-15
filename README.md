@@ -41,6 +41,7 @@
 | 🎯 **Multi-Target Campaigns** | Define a scope with multiple hosts/URLs and run coordinated assessments across all of them |
 | 🧩 **Custom Plugins** | Python plugin system — register your own scripts as agent-callable tools |
 | 🔧 **AI Remediation Engine** | Auto-generate fix commands, config patches, and code snippets for each finding |
+| 🔌 **HTTP Proxy / Traffic Capture** | Built-in intercepting proxy for capturing, inspecting, replaying, and flagging web traffic |
 | 🧠 **Memory & Sessions** | Auto-save conversations, session history, `/continue` truncated responses, conversation summarization |
 | 🌍 **10 AI Providers** | OpenAI, Anthropic, Google Gemini, Groq, Mistral, DeepSeek, Together AI, OpenRouter, Ollama, Local |
 | 🔧 **30+ Tool Integrations** | nmap, nikto, sqlmap, nuclei, ffuf, subfinder, hydra, gobuster, and more |
@@ -75,6 +76,7 @@ hackbot gui
 - **Campaign dashboard** — Create, manage, and monitor multi-target campaigns with progress tracking, target status, and coordinated findings
 - **Plugin manager** — Browse, reload, and execute custom plugins with argument inputs and live output
 - **Remediation panel** — One-click fix generation for findings with copyable commands, config patches, and code snippets
+- **Proxy panel** — Start/stop the intercepting proxy, view traffic table, filter by method/keyword, set domain scope, replay requests, and view flagged security-relevant traffic
 - **PDF export** — One-click professional PDF report generation with charts and executive summary from the agent panel
 - **Markdown rendering** — Full markdown support with syntax highlighting in responses
 - **Native OS window** — Powered by pywebview for a true desktop application feel
@@ -930,6 +932,22 @@ No API key needed — runs entirely on your hardware.
 | `/remediate #` | Remediate a specific finding by number |
 | `/remediate --ai` | Use AI for enhanced remediation guidance |
 
+### Proxy Commands
+
+| Command | Description |
+|---------|-------------|
+| `/proxy start [port]` | Start the intercepting proxy (default port 8080) |
+| `/proxy stop` | Stop the proxy |
+| `/proxy status` | Show proxy status and statistics |
+| `/proxy traffic [n]` | Show captured traffic (last n requests) |
+| `/proxy filter <term>` | Filter traffic by URL/header/body substring |
+| `/proxy scope <domain>` | Restrict capture to domain(s) |
+| `/proxy clear` | Clear all captured traffic |
+| `/proxy export [file]` | Export traffic as JSON |
+| `/proxy replay <id>` | Replay a captured request |
+| `/proxy flags` | Show auto-flagged security-relevant requests |
+| `/proxy detail <id>` | Show full request/response details |
+
 ### Intelligence Commands
 
 | Command | Description |
@@ -937,6 +955,7 @@ No API key needed — runs entirely on your hardware.
 | `/cve <query>` | CVE/exploit lookup (keyword, CVE ID, or `--nmap` for auto-mapping) |
 | `/osint <domain>` | OSINT recon (`--subs`, `--dns`, `--whois`, `--tech`, `--emails`, or full scan) |
 | `/topology [file]` | Network topology from scan output (auto-loads from agent if no args) |
+| `/proxy` | HTTP proxy / traffic capture (start, stop, traffic, filter, flags, replay, export) |
 
 ### Session & Memory Commands
 
@@ -1096,7 +1115,8 @@ hackbot/
 │   ├── diff_report.py   # Assessment diff engine (new/fixed/persistent findings)
 │   ├── pdf_report.py    # Professional PDF report generator
 │   ├── plugins.py       # Custom plugin system (decorator + register patterns)
-│   └── remediation.py   # AI Remediation Engine (20+ vulnerability rules)
+│   ├── remediation.py   # AI Remediation Engine (20+ vulnerability rules)
+│   └── proxy.py         # HTTP Proxy / Traffic Capture engine
 ├── modes/
 │   ├── chat.py          # Chat mode (Q&A + auto-save + /continue)
 │   ├── agent.py         # Agent mode (autonomous testing + memory)
@@ -1151,6 +1171,16 @@ hackbot/
 | `/api/campaigns/active/findings` | GET | Aggregated findings |
 | `/api/campaigns/active/report` | POST | Save campaign report |
 | `/api/agent/remediate` | POST | Generate remediation guidance for findings |
+| `/api/proxy/start` | POST | Start the intercepting proxy |
+| `/api/proxy/stop` | POST | Stop the proxy |
+| `/api/proxy/status` | GET | Get proxy status and stats |
+| `/api/proxy/traffic` | GET | Get captured traffic (supports filter, method, limit params) |
+| `/api/proxy/traffic/<id>` | GET | Get single request detail |
+| `/api/proxy/flags` | GET | Get flagged security-relevant traffic |
+| `/api/proxy/scope` | POST | Set or clear domain scope |
+| `/api/proxy/clear` | POST | Clear captured traffic |
+| `/api/proxy/replay` | POST | Replay a captured request |
+| `/api/proxy/export` | GET | Export traffic as JSON or Markdown |
 
 ---
 

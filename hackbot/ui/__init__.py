@@ -265,6 +265,7 @@ def show_help() -> None:
   /pdf               Generate professional PDF report
   /diff              Compare two assessments (diff report)
   /remediate         Generate fix commands/patches for findings
+  /proxy             HTTP proxy / traffic capture
   /plugins           List/manage custom tool plugins
   /campaign          Multi-target campaign management
   /version           Show version info

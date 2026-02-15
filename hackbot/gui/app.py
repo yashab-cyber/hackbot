@@ -36,6 +36,7 @@ from hackbot.core.campaigns import (
     get_campaign_manager, reset_campaign_manager,
 )
 from hackbot.core.remediation import RemediationEngine
+from hackbot.core.proxy import ProxyEngine, get_proxy_engine, reset_proxy_engine
 from hackbot.memory import MemoryManager
 from hackbot.modes.agent import AgentMode
 from hackbot.modes.chat import ChatMode
@@ -581,6 +582,125 @@ def api_agent_remediate():
         "count": len(results),
         "total_steps": sum(len(r.steps) for r in results),
     })
+
+
+# ── Proxy / Traffic Capture ─────────────────────────────────────────────────
+
+
+@app.route("/api/proxy/start", methods=["POST"])
+def api_proxy_start():
+    """Start the interception proxy."""
+    body = request.get_json(silent=True) or {}
+    port = int(body.get("port", 8080))
+    proxy = get_proxy_engine()
+    result = proxy.start(port=port)
+    return jsonify(result)
+
+
+@app.route("/api/proxy/stop", methods=["POST"])
+def api_proxy_stop():
+    """Stop the interception proxy."""
+    proxy = get_proxy_engine()
+    result = proxy.stop()
+    return jsonify(result)
+
+
+@app.route("/api/proxy/status", methods=["GET"])
+def api_proxy_status():
+    """Get proxy status and statistics."""
+    proxy = get_proxy_engine()
+    stats = proxy.get_stats()
+    stats["is_running"] = proxy.is_running
+    stats["port"] = proxy.port
+    return jsonify(stats)
+
+
+@app.route("/api/proxy/traffic", methods=["GET"])
+def api_proxy_traffic():
+    """Get captured traffic."""
+    proxy = get_proxy_engine()
+    limit = request.args.get("limit", type=int)
+    filter_term = request.args.get("filter", "")
+    method = request.args.get("method", "")
+    traffic = proxy.get_traffic(limit=limit, filter_term=filter_term or None,
+                                method=method or None)
+    return jsonify({
+        "ok": True,
+        "traffic": [r.to_dict() for r in traffic],
+        "count": len(traffic),
+    })
+
+
+@app.route("/api/proxy/traffic/<int:req_id>", methods=["GET"])
+def api_proxy_traffic_detail(req_id: int):
+    """Get details of a single captured request."""
+    proxy = get_proxy_engine()
+    req = proxy.get_request_by_id(req_id)
+    if not req:
+        return jsonify({"ok": False, "error": f"Request #{req_id} not found"})
+    return jsonify({"ok": True, "request": req.to_dict(),
+                     "markdown": ProxyEngine.get_request_detail_markdown(req)})
+
+
+@app.route("/api/proxy/flags", methods=["GET"])
+def api_proxy_flags():
+    """Get flagged traffic (security-relevant requests)."""
+    proxy = get_proxy_engine()
+    flagged = proxy.get_flagged_traffic()
+    return jsonify({
+        "ok": True,
+        "traffic": [r.to_dict() for r in flagged],
+        "count": len(flagged),
+    })
+
+
+@app.route("/api/proxy/scope", methods=["POST"])
+def api_proxy_scope():
+    """Set or clear proxy scope domains."""
+    body = request.get_json(silent=True) or {}
+    proxy = get_proxy_engine()
+    domains = body.get("domains", [])
+    if domains:
+        proxy.set_scope(domains)
+    else:
+        proxy.clear_scope()
+    return jsonify({"ok": True, "scope": list(proxy.scope)})
+
+
+@app.route("/api/proxy/clear", methods=["POST"])
+def api_proxy_clear():
+    """Clear captured traffic."""
+    proxy = get_proxy_engine()
+    count = proxy.clear()
+    return jsonify({"ok": True, "cleared": count})
+
+
+@app.route("/api/proxy/replay", methods=["POST"])
+def api_proxy_replay():
+    """Replay a captured request."""
+    body = request.get_json(silent=True) or {}
+    req_id = body.get("id")
+    if req_id is None:
+        return jsonify({"ok": False, "error": "Missing request 'id'"})
+    proxy = get_proxy_engine()
+    result = proxy.replay_request(int(req_id))
+    if not result:
+        return jsonify({"ok": False, "error": f"Request #{req_id} not found"})
+    return jsonify({
+        "ok": True,
+        "request": result.to_dict(),
+        "markdown": ProxyEngine.get_request_detail_markdown(result),
+    })
+
+
+@app.route("/api/proxy/export", methods=["GET"])
+def api_proxy_export():
+    """Export captured traffic as JSON."""
+    proxy = get_proxy_engine()
+    fmt = request.args.get("format", "json")
+    if fmt == "markdown":
+        return jsonify({"ok": True, "markdown": proxy.export_traffic_markdown()})
+    return jsonify({"ok": True, "data": proxy.export_traffic_json()})
 
 
 @app.route("/api/agent/export", methods=["POST"])

@@ -42,6 +42,7 @@ from hackbot.core.campaigns import (
     get_campaign_manager, reset_campaign_manager,
 )
 from hackbot.core.remediation import RemediationEngine
+from hackbot.core.proxy import ProxyEngine, get_proxy_engine, reset_proxy_engine
 from hackbot.core.topology import TopologyParser
 from hackbot.modes.agent import AgentMode
 from hackbot.modes.chat import ChatMode
@@ -173,6 +174,7 @@ class HackBotApp:
             "/plugins": lambda: self._show_plugins(args),
             "/campaign": lambda: self._handle_campaign(args),
             "/remediate": lambda: self._generate_remediations(args),
+            "/proxy": lambda: self._handle_proxy(args),
         }
 
         handler = commands.get(cmd)
@@ -597,6 +599,143 @@ class HackBotApp:
         console.print(Markdown(report))
         print_success(f"Generated {len(remediations)} remediations "
                       f"({sum(len(r.steps) for r in remediations)} fix steps)")
+        return True
+
+    def _handle_proxy(self, args: str = "") -> bool:
+        """Handle /proxy commands."""
+        parts = args.strip().split(maxsplit=1)
+        subcmd = parts[0].lower() if parts else "status"
+        sub_args = parts[1] if len(parts) > 1 else ""
+        proxy = get_proxy_engine()
+
+        if subcmd == "start":
+            port = int(sub_args) if sub_args.isdigit() else 8080
+            result = proxy.start(port=port)
+            if result["ok"]:
+                print_success(result["message"])
+                print_info(f"  curl example: {result['curl_example']}")
+                print_info(f"  env: {result['env_hint']}")
+            else:
+                print_error(result["error"])
+
+        elif subcmd == "stop":
+            result = proxy.stop()
+            if result["ok"]:
+                print_success(f"Proxy stopped. {result['total_requests']} requests captured.")
+            else:
+                print_error(result["error"])
+
+        elif subcmd == "status":
+            stats = proxy.get_stats()
+            if proxy.is_running:
+                print_info(f"Proxy running on 127.0.0.1:{proxy.port}")
+            else:
+                print_info("Proxy is not running")
+            print_info(f"  Requests: {stats['total_requests']} | "
+                       f"Bytes: {stats['total_bytes']:,} | "
+                       f"Avg: {stats['avg_duration_ms']}ms")
+            if stats["scope"]:
+                print_info(f"  Scope: {', '.join(stats['scope'])}")
+            if stats["flags"]:
+                print_info(f"  Flags: {stats['flags']}")
+
+        elif subcmd == "traffic":
+            limit = int(sub_args) if sub_args.isdigit() else None
+            traffic = proxy.get_traffic(limit=limit)
+            if not traffic:
+                print_info("No captured traffic")
+            else:
+                for r in traffic:
+                    flag_str = f" 🚩{','.join(r.flags)}" if r.flags else ""
+                    color = "red" if r.status_code >= 400 else "yellow" if r.status_code >= 300 else "green"
+                    console.print(f"  [dim]#{r.id}[/] [{color}]{r.method}[/] {r.url} → {r.status_code} "
+                                  f"({r.duration_ms:.0f}ms, {r.response_size}B){flag_str}")
+
+        elif subcmd == "filter":
+            if not sub_args:
+                print_error("Usage: /proxy filter <search_term>")
+            else:
+                traffic = proxy.get_traffic(filter_term=sub_args)
+                if not traffic:
+                    print_info(f"No traffic matching '{sub_args}'")
+                else:
+                    for r in traffic:
+                        console.print(f"  [dim]#{r.id}[/] {r.method} {r.url} → {r.status_code}")
+                    print_info(f"{len(traffic)} matching requests")
+
+        elif subcmd == "scope":
+            if not sub_args:
+                if proxy.scope:
+                    print_info(f"Current scope: {', '.join(proxy.scope)}")
+                else:
+                    print_info("No scope set (capturing all domains)")
+            elif sub_args == "clear":
+                proxy.clear_scope()
+                print_success("Scope cleared — capturing all domains")
+            else:
+                domains = [d.strip() for d in sub_args.split(",")]
+                proxy.set_scope(domains)
+                print_success(f"Scope set: {', '.join(proxy.scope)}")
+
+        elif subcmd == "clear":
+            count = proxy.clear()
+            print_success(f"Cleared {count} captured requests")
+
+        elif subcmd == "export":
+            filename = sub_args or "traffic_capture.json"
+            data = proxy.export_traffic_json()
+            from pathlib import Path
+            Path(filename).write_text(data)
+            print_success(f"Exported {proxy.get_stats()['total_requests']} requests to {filename}")
+
+        elif subcmd == "replay":
+            if not sub_args.isdigit():
+                print_error("Usage: /proxy replay <request_id>")
+            else:
+                req_id = int(sub_args)
+                result = proxy.replay_request(req_id)
+                if result:
+                    md = ProxyEngine.get_request_detail_markdown(result)
+                    console.print(Markdown(md))
+                else:
+                    print_error(f"Request #{req_id} not found")
+
+        elif subcmd == "flags":
+            flagged = proxy.get_flagged_traffic()
+            if not flagged:
+                print_info("No flagged traffic")
+            else:
+                for r in flagged:
+                    flags_str = ", ".join(r.flags)
+                    console.print(f"  [dim]#{r.id}[/] [bold]{r.method}[/] {r.url} → {r.status_code} 🚩 {flags_str}")
+                print_info(f"{len(flagged)} flagged requests")
+
+        elif subcmd == "detail":
+            if not sub_args.isdigit():
+                print_error("Usage: /proxy detail <request_id>")
+            else:
+                req_id = int(sub_args)
+                req = proxy.get_request_by_id(req_id)
+                if req:
+                    md = ProxyEngine.get_request_detail_markdown(req)
+                    console.print(Markdown(md))
+                else:
+                    print_error(f"Request #{req_id} not found")
+
+        else:
+            print_info("Usage: /proxy <start|stop|status|traffic|filter|scope|clear|export|replay|flags|detail>")
+            print_info("  start [port]   — Start proxy (default: 8080)")
+            print_info("  stop           — Stop proxy")
+            print_info("  status         — Show proxy stats")
+            print_info("  traffic [n]    — Show captured traffic (last n requests)")
+            print_info("  filter <term>  — Filter traffic by URL/header/body")
+            print_info("  scope <domain> — Restrict capture to domain(s)")
+            print_info("  clear          — Clear captured traffic")
+            print_info("  export [file]  — Export traffic as JSON")
+            print_info("  replay <id>    — Replay a captured request")
+            print_info("  flags          — Show flagged requests")
+            print_info("  detail <id>    — Show full request/response details")
+
         return True
 
     def _stop_agent(self) -> bool:
