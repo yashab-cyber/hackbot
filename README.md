@@ -1216,7 +1216,25 @@ python -m pytest tests/test_config.py -v    # Config tests
 
 ---
 
-## 📄 License
+## �‍💻 Author
+
+**Yashab Alam** — Creator & Lead Developer
+
+| | |
+|---|---|
+| 🐙 GitHub | [github.com/yashab-cyber](https://github.com/yashab-cyber) |
+| 💼 LinkedIn | [linkedin.com/in/yashab-alam](https://www.linkedin.com/in/yashab-alam) |
+| 📧 Email | [yashabalam707@gmail.com](mailto:yashabalam707@gmail.com) |
+| 📧 Email (alt) | [yashabalam9@gmail.com](mailto:yashabalam9@gmail.com) |
+
+### ❤️ Support HackBot
+
+HackBot is free and open-source. If it has helped you, please consider supporting its development!
+See [DONATE.md](DONATE.md) for details, or reach out through any of the links above.
+
+---
+
+## �📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.
 
@@ -1226,6 +1244,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 **Built for ethical hackers, by ethical hackers. 🛡️**
 
-[Report Bug](https://github.com/yashab-cyber/hackbot/issues) • [Request Feature](https://github.com/yashab-cyber/hackbot/issues)
+[Report Bug](https://github.com/yashab-cyber/hackbot/issues) • [Request Feature](https://github.com/yashab-cyber/hackbot/issues) • [❤️ Donate](DONATE.md)
 
 </div>

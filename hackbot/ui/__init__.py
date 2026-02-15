@@ -59,11 +59,13 @@ BANNER = r"""
 [/]
 [bold bright_cyan]  AI Cybersecurity Assistant[/] [dim]v{version}[/]
 [dim]  ─────────────────────────────────────────────[/]
+[dim]  Developed by[/] [bold bright_white]Yashab Alam[/] [dim]|[/] [dim underline]github.com/yashab-cyber[/]
 """.replace("{version}", __version__)
 
 BANNER_SMALL = (
     f"[bold bright_green]⚡ HackBot[/] [dim]v{__version__}[/] "
-    "[dim]|[/] [bold bright_cyan]AI Cybersecurity Assistant[/]"
+    "[dim]|[/] [bold bright_cyan]AI Cybersecurity Assistant[/] "
+    "[dim]|[/] [dim]by Yashab Alam[/]"
 )
 
 
@@ -269,6 +271,7 @@ def show_help() -> None:
   /plugins           List/manage custom tool plugins
   /campaign          Multi-target campaign management
   /version           Show version info
+  /donate            Show donation & contact info
   /quit              Exit HackBot
 """
     console.print(help_text)

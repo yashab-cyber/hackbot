@@ -140,7 +140,8 @@ class HackBotApp:
             "/exit": lambda: False,
             "/q": lambda: False,
             "/help": lambda: (show_help(), True)[1],
-            "/version": lambda: (print_info(f"HackBot v{__version__}"), True)[1],
+            "/version": lambda: (self._show_version(), True)[1],
+            "/donate": lambda: (self._show_donate(), True)[1],
             "/chat": lambda: self._switch_mode("chat"),
             "/agent": lambda: self._start_agent(args),
             "/plan": lambda: self._switch_mode("plan"),
@@ -309,6 +310,25 @@ class HackBotApp:
         save_config(self.config)
         print_success(f"Model set to: {model}")
         return True
+
+    def _show_version(self) -> None:
+        print_info(f"HackBot v{__version__}")
+        console.print("[dim]  Developed by[/] [bold]Yashab Alam[/]")
+        console.print("[dim]  GitHub:[/]   https://github.com/yashab-cyber")
+        console.print("[dim]  LinkedIn:[/] https://www.linkedin.com/in/yashab-alam")
+
+    def _show_donate(self) -> None:
+        console.print("\n[bold bright_red]❤️  Support HackBot[/]\n")
+        console.print("HackBot is free & open-source. If it has helped you,")
+        console.print("please consider supporting its development!\n")
+        console.print("[bold]Developer:[/]  Yashab Alam")
+        console.print("[bold]GitHub:[/]     https://github.com/yashab-cyber")
+        console.print("[bold]LinkedIn:[/]   https://www.linkedin.com/in/yashab-alam")
+        console.print("[bold]Email:[/]      yashabalam707@gmail.com")
+        console.print("[bold]Email:[/]      yashabalam9@gmail.com")
+        console.print("\n[dim]For donation inquiries, sponsorship, or collaboration —[/]")
+        console.print("[dim]reach out through any of the links above.[/]")
+        console.print("[dim]See DONATE.md for more details.[/]\n")
 
     def _set_key(self, key: str) -> bool:
         if not key:
