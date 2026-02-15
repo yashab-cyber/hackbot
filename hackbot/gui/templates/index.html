@@ -2795,7 +2795,16 @@ async function saveSettings() {
     });
     const data = await resp.json();
     if (data.ok) {
-      toast('Settings saved!', 'success');
+      // Show validation result if present
+      if (data.validation) {
+        if (data.validation.valid) {
+          toast(data.validation.message, 'success');
+        } else {
+          toast('⚠️ ' + data.validation.message, 'error');
+        }
+      } else {
+        toast('Settings saved!', 'success');
+      }
       checkStatus();
     }
   } catch (e) {

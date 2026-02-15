@@ -318,8 +318,17 @@ class HackBotApp:
         self.engine = AIEngine(self.config.ai)
         self.chat.engine = self.engine
         self.plan.engine = self.engine
-        save_config(self.config)
-        print_success("API key updated")
+
+        # Validate the key before saving
+        print_info("Validating API key...")
+        result = self.engine.validate_api_key()
+        if result["valid"]:
+            save_config(self.config)
+            print_success(result["message"])
+        else:
+            print_error(result["message"])
+            print_warning("API key saved but may not work. Use /key to set a valid key.")
+            save_config(self.config)
         return True
 
     def _set_provider(self, provider: str) -> bool:
@@ -351,6 +360,15 @@ class HackBotApp:
         )
         if preset.get("env_key"):
             print_info(f"Set API key with: /key <key>  or  export {preset['env_key']}=<key>")
+
+        # Validate existing key against new provider
+        if self.config.ai.api_key:
+            print_info("Validating API key with new provider...")
+            result = self.engine.validate_api_key()
+            if result["valid"]:
+                print_success(result["message"])
+            else:
+                print_error(result["message"])
         return True
 
     def _list_providers(self) -> bool:
@@ -1809,6 +1827,16 @@ def setup(ctx, key, provider, model):
 
     save_config(cfg)
     print_success(f"API key saved! Provider: {cfg.ai.provider}, Model: {cfg.ai.model}")
+
+    # Validate the key
+    print_info("Validating API key...")
+    engine = AIEngine(cfg.ai)
+    result = engine.validate_api_key()
+    if result["valid"]:
+        print_success(result["message"])
+    else:
+        print_error(result["message"])
+        print_warning("Key saved but validation failed. Check your key and try again.")
     print_info("Run 'hackbot' to start.")
 
 

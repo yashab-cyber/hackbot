@@ -358,6 +358,61 @@ class AIEngine:
         """Check if API key is set."""
         return bool(self.config.api_key)
 
+    def validate_api_key(self, timeout: float = 10.0) -> Dict[str, Any]:
+        """Validate the current API key by making a lightweight test request.
+
+        Sends a minimal chat completion to verify the key and endpoint work.
+        Skips validation for keyless providers (ollama, local).
+
+        Args:
+            timeout: Max seconds to wait for the validation request.
+
+        Returns:
+            Dict with 'valid' (bool), 'message' (str), and optionally 'error'.
+        """
+        provider = self.config.provider
+
+        # Keyless local providers — always "valid"
+        if provider in ("ollama", "local"):
+            return {"valid": True, "message": f"{provider} provider does not require an API key"}
+
+        if not self.config.api_key:
+            return {"valid": False, "message": "No API key configured", "error": "missing_key"}
+
+        try:
+            # Use a tiny request with max_tokens=1 to minimize cost
+            response = self.client.chat.completions.create(
+                model=self.config.model,
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=1,
+                timeout=timeout,
+            )
+            model_used = getattr(response, "model", self.config.model)
+            return {
+                "valid": True,
+                "message": f"API key is valid — connected to {provider}/{model_used}",
+            }
+        except Exception as e:
+            err_msg = str(e)
+            # Parse common error patterns
+            if "401" in err_msg or "Unauthorized" in err_msg or "invalid" in err_msg.lower():
+                friendly = "Invalid API key — authentication failed"
+            elif "403" in err_msg or "Forbidden" in err_msg:
+                friendly = "API key lacks required permissions"
+            elif "404" in err_msg or "not found" in err_msg.lower():
+                friendly = f"Model '{self.config.model}' not found — check model name or provider"
+            elif "429" in err_msg or "rate" in err_msg.lower():
+                friendly = "Rate limited — key is valid but quota exceeded"
+                return {"valid": True, "message": friendly}
+            elif "timeout" in err_msg.lower() or "timed out" in err_msg.lower():
+                friendly = f"Connection timed out — cannot reach {provider} endpoint"
+            elif "connection" in err_msg.lower() or "connect" in err_msg.lower():
+                friendly = f"Connection error — cannot reach {provider} endpoint"
+            else:
+                friendly = f"API key validation failed: {err_msg[:200]}"
+
+            return {"valid": False, "message": friendly, "error": err_msg[:500]}
+
 
 def create_conversation(mode: str, target: str = "") -> Conversation:
     """Create a new conversation with the appropriate system prompt."""

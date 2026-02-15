@@ -158,7 +158,12 @@ def api_config():
         _state["plan"] = PlanMode(_state["engine"], config)
         save_config(config)
 
-        return jsonify({"ok": True})
+        # Validate API key if one was provided or already exists
+        validation = None
+        if config.ai.api_key:
+            validation = _state["engine"].validate_api_key()
+
+        return jsonify({"ok": True, "validation": validation})
 
     return jsonify({
         "provider": config.ai.provider,
@@ -173,6 +178,16 @@ def api_config():
         "timeout": config.agent.timeout,
         "report_format": config.reporting.format,
     })
+
+
+@app.route("/api/validate-key", methods=["POST"])
+def api_validate_key():
+    """Validate the current API key by making a test request."""
+    engine: Optional[AIEngine] = _state.get("engine")
+    if not engine:
+        return jsonify({"valid": False, "message": "No engine configured"})
+    result = engine.validate_api_key()
+    return jsonify(result)
 
 
 @app.route("/api/mode", methods=["POST"])

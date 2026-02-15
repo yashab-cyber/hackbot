@@ -1,6 +1,7 @@
 """Tests for HackBot AI Engine."""
 
 import pytest
+from unittest.mock import patch, MagicMock
 
 from hackbot.core.engine import (
     AIEngine,
@@ -93,3 +94,199 @@ def test_system_prompts_exist():
     assert len(SYSTEM_PROMPT_CHAT) > 100
     assert len(SYSTEM_PROMPT_AGENT) > 100
     assert len(SYSTEM_PROMPT_PLAN) > 100
+
+
+# ── API Key Validation Tests ────────────────────────────────────────────────
+
+
+class TestValidateApiKey:
+    """Tests for AIEngine.validate_api_key()."""
+
+    def test_validate_no_key(self):
+        """Should fail when no API key is set."""
+        cfg = AIConfig(api_key="")
+        engine = AIEngine(cfg)
+        result = engine.validate_api_key()
+        assert not result["valid"]
+        assert "No API key" in result["message"]
+        assert result["error"] == "missing_key"
+
+    def test_validate_ollama_skips(self):
+        """Ollama provider should always return valid (keyless)."""
+        cfg = AIConfig(provider="ollama", api_key="")
+        engine = AIEngine(cfg)
+        result = engine.validate_api_key()
+        assert result["valid"]
+        assert "ollama" in result["message"]
+
+    def test_validate_local_skips(self):
+        """Local provider should always return valid (keyless)."""
+        cfg = AIConfig(provider="local", api_key="")
+        engine = AIEngine(cfg)
+        result = engine.validate_api_key()
+        assert result["valid"]
+        assert "local" in result["message"]
+
+    @patch("hackbot.core.engine.OpenAI")
+    def test_validate_success(self, mock_openai_cls):
+        """Should return valid on successful API call."""
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.model = "gpt-4o"
+        mock_client.chat.completions.create.return_value = mock_response
+
+        cfg = AIConfig(api_key="test-key-123", provider="openai", model="gpt-4o")
+        engine = AIEngine(cfg)
+
+        result = engine.validate_api_key()
+        assert result["valid"]
+        assert "valid" in result["message"].lower()
+        assert "openai" in result["message"]
+
+    @patch("hackbot.core.engine.OpenAI")
+    def test_validate_auth_error_401(self, mock_openai_cls):
+        """Should detect 401 unauthorized errors."""
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception(
+            "Error code: 401 - Unauthorized"
+        )
+
+        cfg = AIConfig(api_key="bad-key", provider="openai", model="gpt-4o")
+        engine = AIEngine(cfg)
+
+        result = engine.validate_api_key()
+        assert not result["valid"]
+        assert "Invalid API key" in result["message"] or "authentication" in result["message"].lower()
+
+    @patch("hackbot.core.engine.OpenAI")
+    def test_validate_invalid_key_error(self, mock_openai_cls):
+        """Should detect invalid key errors."""
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception(
+            "Invalid API key provided"
+        )
+
+        cfg = AIConfig(api_key="bad-key", provider="openai", model="gpt-4o")
+        engine = AIEngine(cfg)
+
+        result = engine.validate_api_key()
+        assert not result["valid"]
+        assert "Invalid" in result["message"] or "authentication" in result["message"].lower()
+
+    @patch("hackbot.core.engine.OpenAI")
+    def test_validate_forbidden_403(self, mock_openai_cls):
+        """Should detect 403 permission errors."""
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception(
+            "Error code: 403 Forbidden"
+        )
+
+        cfg = AIConfig(api_key="limited-key", provider="openai", model="gpt-4o")
+        engine = AIEngine(cfg)
+
+        result = engine.validate_api_key()
+        assert not result["valid"]
+        assert "permission" in result["message"].lower()
+
+    @patch("hackbot.core.engine.OpenAI")
+    def test_validate_model_not_found(self, mock_openai_cls):
+        """Should detect model not found errors."""
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception(
+            "Error code: 404 - Model not found"
+        )
+
+        cfg = AIConfig(api_key="good-key", provider="openai", model="nonexistent-model")
+        engine = AIEngine(cfg)
+
+        result = engine.validate_api_key()
+        assert not result["valid"]
+        assert "not found" in result["message"].lower()
+
+    @patch("hackbot.core.engine.OpenAI")
+    def test_validate_rate_limited(self, mock_openai_cls):
+        """Rate-limited should still report valid (key works, just quota hit)."""
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception(
+            "Error code: 429 - Rate limit exceeded"
+        )
+
+        cfg = AIConfig(api_key="good-key", provider="openai", model="gpt-4o")
+        engine = AIEngine(cfg)
+
+        result = engine.validate_api_key()
+        assert result["valid"]
+        assert "rate" in result["message"].lower() or "quota" in result["message"].lower()
+
+    @patch("hackbot.core.engine.OpenAI")
+    def test_validate_timeout(self, mock_openai_cls):
+        """Should detect timeout errors."""
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception(
+            "Request timed out"
+        )
+
+        cfg = AIConfig(api_key="good-key", provider="openai", model="gpt-4o")
+        engine = AIEngine(cfg)
+
+        result = engine.validate_api_key()
+        assert not result["valid"]
+        assert "timed out" in result["message"].lower() or "timeout" in result["message"].lower()
+
+    @patch("hackbot.core.engine.OpenAI")
+    def test_validate_connection_error(self, mock_openai_cls):
+        """Should detect connection errors."""
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception(
+            "Connection refused"
+        )
+
+        cfg = AIConfig(api_key="good-key", provider="anthropic", model="claude-sonnet-4-20250514")
+        engine = AIEngine(cfg)
+
+        result = engine.validate_api_key()
+        assert not result["valid"]
+        assert "connection" in result["message"].lower() or "connect" in result["message"].lower()
+
+    @patch("hackbot.core.engine.OpenAI")
+    def test_validate_generic_error(self, mock_openai_cls):
+        """Should handle unknown errors gracefully."""
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception(
+            "Something unexpected happened"
+        )
+
+        cfg = AIConfig(api_key="good-key", provider="openai", model="gpt-4o")
+        engine = AIEngine(cfg)
+
+        result = engine.validate_api_key()
+        assert not result["valid"]
+        assert "validation failed" in result["message"].lower()
+        assert "error" in result
+
+    @patch("hackbot.core.engine.OpenAI")
+    def test_validate_calls_with_minimal_tokens(self, mock_openai_cls):
+        """Validation should use max_tokens=1 to minimize cost."""
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.model = "gpt-4o"
+        mock_client.chat.completions.create.return_value = mock_response
+
+        cfg = AIConfig(api_key="test-key", provider="openai", model="gpt-4o")
+        engine = AIEngine(cfg)
+
+        engine.validate_api_key()
+
+        call_kwargs = mock_client.chat.completions.create.call_args
+        assert call_kwargs[1]["max_tokens"] == 1
+        assert call_kwargs[1]["model"] == "gpt-4o"
