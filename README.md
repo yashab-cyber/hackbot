@@ -881,7 +881,7 @@ HackBot supports **10 AI providers** out of the box. Switch providers instantly 
 | **DeepSeek** | DeepSeek V3, DeepSeek R1 | `DEEPSEEK_API_KEY` | Reasoning models |
 | **Together AI** | LLaMA 3.1 405B, Qwen 2.5, Mistral Large 2 | `TOGETHER_API_KEY` | Large open models |
 | **OpenRouter** | All top models via one API | `OPENROUTER_API_KEY` | One key, many providers |
-| **Ollama** | LLaMA 3.1 405B/70B, Vicuna, GLM-4 | — | 100% local, no API key needed |
+| **Ollama** | LLaMA 3.1 405B/70B, TinyLlama, WhiteRabbitNeo, Vicuna, GLM-4 | — | 100% local, no API key needed |
 | **Local** | Any OpenAI-compatible server | — | Custom endpoints |
 
 ### Switching Providers
@@ -916,6 +916,22 @@ hackbot --provider ollama --model llama3.2
 ```
 
 No API key needed — runs entirely on your hardware.
+
+### Low-End PC (TinyLlama)
+
+```bash
+# Only ~600 MB VRAM — runs on almost any machine
+ollama pull tinyllama
+hackbot --provider ollama --model tinyllama
+```
+
+### Cybersecurity Model (WhiteRabbitNeo)
+
+```bash
+# Penetration-testing–focused model
+ollama pull whiterabbitneo
+hackbot --provider ollama --model whiterabbitneo
+```
 
 ---
 
