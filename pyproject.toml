@@ -91,7 +91,7 @@ include = ["hackbot*"]
 
 [tool.setuptools.package-data]
 "hackbot.gui" = ["templates/**/*", "static/**/*"]
-"" = ["public/*.png"]
+"*" = ["public/*.png"]
 
 [tool.ruff]
 line-length = 100
