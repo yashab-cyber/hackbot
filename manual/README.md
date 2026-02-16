@@ -1,3 +1,9 @@
+<div align="center">
+
+<img src="../public/1000023729-removebg-preview.png" alt="HackBot Logo" width="160">
+
+</div>
+
 # 📖 HackBot — Complete User Manual
 
 Welcome to the official HackBot manual. This guide covers every feature, command, and function available in both the CLI and the GUI.
