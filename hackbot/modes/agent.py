@@ -16,6 +16,7 @@ This is the core differentiator — real cybersecurity testing automation.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 from dataclasses import dataclass, field
@@ -27,6 +28,8 @@ from hackbot.config import HackBotConfig, REPORTS_DIR
 from hackbot.core.engine import AIEngine, Conversation, create_conversation
 from hackbot.core.runner import ToolResult, ToolRunner
 from hackbot.memory import ConversationSummarizer, MemoryManager, CONTINUE_PROMPT
+
+logger = logging.getLogger(__name__)
 
 try:
     from hackbot.core.pdf_report import PDFReportGenerator, HAS_REPORTLAB
@@ -399,9 +402,14 @@ Explain your reasoning at each step."""
                 "user",
                 "The assessment has been stopped. Please provide a summary of findings so far.",
             )
-            response = self.engine.chat(self.conversation, stream=False)
-            self.conversation.add("assistant", response)
-            return response
+            try:
+                response = self.engine.chat(self.conversation, stream=False)
+                self.conversation.add("assistant", response)
+                return response
+            except Exception as exc:
+                fallback = self.get_findings_summary() if self.findings else "Assessment stopped (no findings recorded)."
+                logger.warning("Failed to generate AI summary on stop: %s", exc)
+                return f"Assessment stopped. AI summary unavailable (API error).\n\n{fallback}"
         return "No active assessment."
 
     def get_findings_summary(self) -> str:
