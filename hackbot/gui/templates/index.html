@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HackBot — AI Cybersecurity Assistant</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<link rel="icon" href="{{ url_for('static', filename='logo.png') }}" type="image/png">
 <style>
 /* ── Reset & Base ─────────────────────────────────────────────────────────── */
 *,:before,:after{box-sizing:border-box;margin:0;padding:0}
@@ -201,7 +201,7 @@ textarea#userInput::placeholder{color:var(--text-dim)}
 <!-- ── Titlebar ─────────────────────────────────────────────────────────── -->
 <div class="titlebar">
   <div class="titlebar-title">
-    <span class="accent">⚡</span>
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="" style="width:18px;height:18px;border-radius:3px;margin-right:6px;vertical-align:middle">
     <span class="full">HackBot — AI Cybersecurity Assistant</span>
     <span style="display:none" class="short">HackBot</span>
   </div>
@@ -217,7 +217,8 @@ textarea#userInput::placeholder{color:var(--text-dim)}
 <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
 <div class="sidebar">
   <div class="logo">
-    <h1>⚡ HackBot</h1>
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="HackBot" style="width:40px;height:40px;border-radius:8px;margin-right:8px;vertical-align:middle">
+    <h1 style="display:inline;vertical-align:middle">HackBot</h1>
     <span>v{{ version }}</span>
   </div>
 

@@ -171,6 +171,65 @@ install_security_tools() {
     fi
 }
 
+# ── Desktop Shortcut ─────────────────────────────────────────────────────────
+install_desktop_shortcut() {
+    if [ "${INSTALL_GUI:-false}" != "true" ]; then
+        return
+    fi
+
+    if [ "$OS" = "linux" ]; then
+        info "Creating desktop shortcut..."
+
+        # Find the logo — check local repo first, then installed package
+        LOGO_SRC=""
+        if [ -f "public/1000023729-removebg-preview.png" ]; then
+            LOGO_SRC="public/1000023729-removebg-preview.png"
+        fi
+
+        # Install icon
+        ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
+        mkdir -p "$ICON_DIR"
+        if [ -n "$LOGO_SRC" ]; then
+            cp "$LOGO_SRC" "$ICON_DIR/hackbot.png"
+            success "Icon installed to $ICON_DIR/hackbot.png"
+        fi
+
+        # Install .desktop file
+        DESKTOP_DIR="$HOME/.local/share/applications"
+        mkdir -p "$DESKTOP_DIR"
+
+        cat > "$DESKTOP_DIR/hackbot.desktop" << 'DESKTOP_EOF'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=HackBot
+GenericName=AI Cybersecurity Assistant
+Comment=AI-powered pentesting & cybersecurity assistant with Agent, Chat & Planning modes
+Exec=hackbot --gui
+Icon=hackbot
+Terminal=false
+Categories=Security;Network;System;Utility;
+Keywords=hacking;pentesting;cybersecurity;security;nmap;ai;
+StartupNotify=true
+StartupWMClass=hackbot
+DESKTOP_EOF
+
+        chmod +x "$DESKTOP_DIR/hackbot.desktop"
+        success "Desktop shortcut installed to $DESKTOP_DIR/hackbot.desktop"
+
+        # Update desktop database if available
+        if command -v update-desktop-database &>/dev/null; then
+            update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+        fi
+
+        info "HackBot should now appear in your application menu"
+
+    elif [ "$OS" = "macos" ]; then
+        info "On macOS, launch HackBot GUI with: hackbot --gui"
+        info "To add to Dock: drag from Applications or create an alias"
+    fi
+}
+
 # ── Post-install ─────────────────────────────────────────────────────────────
 post_install() {
     echo ""
@@ -262,6 +321,9 @@ main() {
             exit 1
             ;;
     esac
+
+    # Install desktop shortcut if GUI was selected
+    install_desktop_shortcut
 
     post_install
 }

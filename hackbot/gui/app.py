@@ -49,6 +49,8 @@ logger = logging.getLogger(__name__)
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
+LOGO_PATH = STATIC_DIR / "logo.png"
+PUBLIC_DIR = Path(__file__).parent.parent.parent / "public"
 
 app = Flask(
     __name__,
@@ -1549,6 +1551,7 @@ def launch_gui(config: HackBotConfig, host: str = "127.0.0.1", port: int = 1337)
         print(f"\n  ⚡ HackBot launching as desktop application...")
 
         # Create native window
+        icon_path = str(LOGO_PATH) if LOGO_PATH.exists() else None
         window = webview.create_window(
             title="HackBot — AI Cybersecurity Assistant",
             url=url,

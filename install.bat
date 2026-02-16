@@ -148,6 +148,48 @@ echo   LinkedIn: https://www.linkedin.com/in/yashab-alam
 echo   Email:    yashabalam707@gmail.com ^| yashabalam9@gmail.com
 echo   Support:  https://github.com/yashab-cyber/hackbot/blob/main/DONATE.md
 echo.
+
+REM ── Desktop Shortcut ───────────────────────────────────────────────────────
+if "%INSTALL_GUI%"=="true" (
+    echo [INFO] Creating desktop shortcut...
+    set SHORTCUT_VBS=%TEMP%\hackbot_shortcut.vbs
+    >"%SHORTCUT_VBS%" (
+        echo Set WshShell = WScript.CreateObject^("WScript.Shell"^)
+        echo Set lnk = WshShell.CreateShortcut^(WshShell.SpecialFolders^("Desktop"^) ^& "\HackBot.lnk"^)
+        echo lnk.TargetPath = WshShell.ExpandEnvironmentStrings^("%%LOCALAPPDATA%%"^) ^& "\Programs\Python\Python3*\Scripts\hackbot.exe"
+        echo lnk.Arguments = "--gui"
+        echo lnk.Description = "HackBot - AI Cybersecurity Assistant"
+        echo lnk.WorkingDirectory = WshShell.ExpandEnvironmentStrings^("%%USERPROFILE%%"^)
+        echo lnk.Save
+    )
+    cscript //nologo "%SHORTCUT_VBS%" 2>nul
+    if %errorlevel% equ 0 (
+        echo [OK] Desktop shortcut created
+    ) else (
+        echo [WARN] Could not create desktop shortcut automatically
+        echo         Run: hackbot --gui ^(to launch the desktop app^)
+    )
+    del "%SHORTCUT_VBS%" 2>nul
+
+    REM Also add to Start Menu
+    set STARTMENU=%APPDATA%\Microsoft\Windows\Start Menu\Programs
+    set SM_VBS=%TEMP%\hackbot_startmenu.vbs
+    >"%SM_VBS%" (
+        echo Set WshShell = WScript.CreateObject^("WScript.Shell"^)
+        echo Set lnk = WshShell.CreateShortcut^("%STARTMENU%\HackBot.lnk"^)
+        echo lnk.TargetPath = WshShell.ExpandEnvironmentStrings^("%%LOCALAPPDATA%%"^) ^& "\Programs\Python\Python3*\Scripts\hackbot.exe"
+        echo lnk.Arguments = "--gui"
+        echo lnk.Description = "HackBot - AI Cybersecurity Assistant"
+        echo lnk.WorkingDirectory = WshShell.ExpandEnvironmentStrings^("%%USERPROFILE%%"^)
+        echo lnk.Save
+    )
+    cscript //nologo "%SM_VBS%" 2>nul
+    if %errorlevel% equ 0 (
+        echo [OK] Start Menu shortcut created
+    )
+    del "%SM_VBS%" 2>nul
+    echo.
+)
 exit /b 0
 
 :usage
