@@ -204,6 +204,7 @@ Use the **Settings** panel — select provider from dropdown, pick a model, ente
 | `llama3.1:70b` | Llama 3.1 70B |
 | `llama3.2` | Llama 3.2 |
 | `tinyllama` | TinyLlama 1.1B (low-end PC, ~600 MB) |
+| `xploiter/pentester` | Pentester (ethical hacking / offensive security) |
 | `whiterabbitneo` | WhiteRabbitNeo (cybersecurity / pentesting) |
 | `mistral` | Mistral 7B |
 | `mixtral` | Mixtral MoE |
@@ -214,6 +215,7 @@ Use the **Settings** panel — select provider from dropdown, pick a model, ente
 
 > Install Ollama from [ollama.com](https://ollama.com), then `ollama pull llama3.1:70b`.
 > For low-end PCs: `ollama pull tinyllama` (only ~600 MB VRAM).
+> For ethical hacking: `ollama pull xploiter/pentester` (recommended for pentesters).
 > For cybersecurity: `ollama pull whiterabbitneo`.
 
 #### Installing & Using Ollama Models
@@ -250,6 +252,7 @@ ollama pull tinyllama           # ~600 MB — 1.1B params, 2 GB RAM is enough
 ollama pull mistral             # ~4 GB — solid 7B model
 
 # Cybersecurity / pentesting focused
+ollama pull xploiter/pentester  # Best for ethical hacking & offensive security
 ollama pull whiterabbitneo      # Trained for offensive security tasks
 
 # Reasoning & code
@@ -264,6 +267,7 @@ ollama pull glm4:9b            # GLM-4 9B
 # From the terminal
 hackbot --provider ollama --model llama3.2
 hackbot --provider ollama --model tinyllama
+hackbot --provider ollama --model xploiter/pentester
 hackbot --provider ollama --model whiterabbitneo
 
 # Or inside the HackBot REPL
@@ -293,6 +297,7 @@ hackbot --provider ollama --base-url http://192.168.1.100:11434/v1
 |-------|-----------|------------|----------|
 | `tinyllama` | 1.1B | ~2 GB | Low-end PCs, Raspberry Pi, quick tests |
 | `mistral` | 7B | ~6 GB | Budget desktops, good all-rounder |
+| `xploiter/pentester` | — | ~8 GB | Ethical hacking, offensive security (recommended) |
 | `whiterabbitneo` | 13B | ~10 GB | Cybersecurity / pentesting tasks |
 | `vicuna:13b` | 13B | ~10 GB | General conversation |
 | `deepseek-r1:14b` | 14B | ~12 GB | Reasoning & code |
