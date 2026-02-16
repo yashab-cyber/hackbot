@@ -190,11 +190,20 @@ Explain your reasoning at each step."""
         self.conversation.add("user", context)
 
         # Get initial plan from AI
-        response = self.engine.chat(
-            self.conversation,
-            stream=bool(self.on_token),
-            on_token=self.on_token,
-        )
+        try:
+            response = self.engine.chat(
+                self.conversation,
+                stream=bool(self.on_token),
+                on_token=self.on_token,
+            )
+        except Exception as e:
+            logger.error("Agent start failed: %s", e)
+            self.is_running = False
+            error_msg = f"Failed to connect to AI model: {e}"
+            self.conversation.add("assistant", error_msg)
+            self._auto_save()
+            return error_msg
+
         self.conversation.add("assistant", response)
         self._last_response = response
         self._was_truncated = self._detect_truncation(response)
@@ -231,11 +240,19 @@ Explain your reasoning at each step."""
             self.conversation.add("user", "Continue with the next step of the assessment.")
 
         # Get AI response
-        response = self.engine.chat(
-            self.conversation,
-            stream=bool(self.on_token),
-            on_token=self.on_token,
-        )
+        try:
+            response = self.engine.chat(
+                self.conversation,
+                stream=bool(self.on_token),
+                on_token=self.on_token,
+            )
+        except Exception as e:
+            logger.error("Agent step failed: %s", e)
+            error_msg = f"AI request failed: {e}"
+            self.conversation.add("assistant", error_msg)
+            self._auto_save()
+            return error_msg, False
+
         self.conversation.add("assistant", response)
         self._last_response = response
         self._was_truncated = self._detect_truncation(response)
@@ -263,11 +280,16 @@ Explain your reasoning at each step."""
             self.conversation.add("user", f"Tool execution results:\n\n{result_msg}")
 
             # Get AI analysis of results
-            analysis = self.engine.chat(
-                self.conversation,
-                stream=bool(self.on_token),
-                on_token=self.on_token,
-            )
+            try:
+                analysis = self.engine.chat(
+                    self.conversation,
+                    stream=bool(self.on_token),
+                    on_token=self.on_token,
+                )
+            except Exception as e:
+                logger.error("Agent analysis failed: %s", e)
+                analysis = f"AI analysis request failed: {e}"
+
             self.conversation.add("assistant", analysis)
             self._last_response = analysis
             self._was_truncated = self._detect_truncation(analysis)

@@ -181,8 +181,17 @@ class HackBotApp:
 
         handler = commands.get(cmd)
         if handler:
-            result = handler()
-            return result if result is not None else True
+            try:
+                result = handler()
+                return result if result is not None else True
+            except KeyboardInterrupt:
+                console.print("\n[dim]Interrupted[/]")
+                return True
+            except Exception as e:
+                print_error(f"Error: {str(e)}")
+                if self.config.ui.verbose:
+                    console.print_exception()
+                return True
         else:
             print_error(f"Unknown command: {cmd}. Type /help for available commands.")
             return True
@@ -260,6 +269,15 @@ class HackBotApp:
             print_error("Usage: /agent <target>  (e.g., /agent 192.168.1.1)")
             return True
 
+        if not self.engine.is_configured():
+            print_error(
+                "API key not configured. Set it with:\n"
+                "  /key <your-api-key>\n"
+                "  or set HACKBOT_API_KEY environment variable\n"
+                "  or set OPENAI_API_KEY environment variable"
+            )
+            return True
+
         self.mode = "agent"
         show_mode("agent")
 
@@ -308,6 +326,9 @@ class HackBotApp:
         # Update all modes with new engine
         self.chat.engine = self.engine
         self.plan.engine = self.engine
+        if self.agent:
+            self.agent.engine = self.engine
+            self.agent.summarizer.engine = self.engine
         save_config(self.config)
         print_success(f"Model set to: {model}")
         return True
@@ -357,6 +378,9 @@ class HackBotApp:
         self.engine = AIEngine(self.config.ai)
         self.chat.engine = self.engine
         self.plan.engine = self.engine
+        if self.agent:
+            self.agent.engine = self.engine
+            self.agent.summarizer.engine = self.engine
 
         # Validate the key before saving
         print_info("Validating API key...")
@@ -391,6 +415,9 @@ class HackBotApp:
         self.engine = AIEngine(self.config.ai)
         self.chat.engine = self.engine
         self.plan.engine = self.engine
+        if self.agent:
+            self.agent.engine = self.engine
+            self.agent.summarizer.engine = self.engine
         save_config(self.config)
         print_success(
             f"Provider: {preset['name']}\n"

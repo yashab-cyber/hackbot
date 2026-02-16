@@ -158,6 +158,9 @@ def api_config():
         _state["engine"] = AIEngine(config.ai)
         _state["chat"] = ChatMode(_state["engine"], config)
         _state["plan"] = PlanMode(_state["engine"], config)
+        # Reset agent so it picks up the new engine on next start
+        if _state.get("agent"):
+            _state["agent"] = None
         save_config(config)
 
         # Validate API key if one was provided or already exists
