@@ -277,7 +277,10 @@ class ConversationSummarizer:
 
     def needs_summarization(self, messages: list) -> bool:
         """Check if the conversation needs summarization."""
-        non_system = [m for m in messages if getattr(m, 'role', m.get('role', '')) != 'system']
+        non_system = [
+            m for m in messages
+            if (m.role if hasattr(m, 'role') else m.get('role', '')) != 'system'
+        ]
         return len(non_system) > self.max_messages
 
     def summarize(self, conversation: Any) -> str:
