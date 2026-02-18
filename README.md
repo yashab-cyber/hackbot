@@ -11,8 +11,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
 [![Tests](https://img.shields.io/badge/tests-93%20passing-brightgreen.svg)]()
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yashab-cyber/hackbot/blob/main/examples/HackBot_Colab.ipynb)
 
-[Features](#-features) • [GUI](#%EF%B8%8F-native-desktop-gui) • [Install](#-installation) • [Quick Start](#-quick-start) • [Modes](#-modes) • [Intelligence](#%EF%B8%8F-intelligence-modules) • [Providers](#-ai-providers) • [Config](#%EF%B8%8F-configuration) • [Docker](#-docker)
+[Features](#-features) • [GUI](#%EF%B8%8F-native-desktop-gui) • [Install](#-installation) • [Quick Start](#-quick-start) • [Modes](#-modes) • [Intelligence](#%EF%B8%8F-intelligence-modules) • [Providers](#-ai-providers) • [Config](#%EF%B8%8F-configuration) • [Docker](#-docker) • [Colab](#-run-on-google-colab)
 
 </div>
 
@@ -1117,6 +1118,53 @@ HACKBOT_API_KEY=sk-your-key docker-compose run hackbot
 - nmap, nikto, dirb, hydra, john, sslscan
 - nuclei, subfinder, httpx, ffuf (Go tools)
 - sqlmap, wfuzz (Python tools)
+
+---
+
+## ☁️ Run on Google Colab
+
+No local CPU? Run HackBot entirely on Google Colab with free GPU access.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yashab-cyber/hackbot/blob/main/examples/HackBot_Colab.ipynb)
+
+The notebook includes **all three modes** ready to use:
+
+| Section | What it does |
+|---------|-------------|
+| **Chat Mode** | Interactive cybersecurity Q&A |
+| **Agent Mode** | Autonomous pentesting with real tools (nmap, nikto, etc.) |
+| **Plan Mode** | Generate structured pentest plans (8 templates) |
+| **Ollama on Colab** | Run local models using Colab's free GPU |
+| **GUI on Colab** | Launch the full web GUI via tunnel |
+
+### Quick Start on Colab
+
+```python
+# 1. Install
+!pip install "hackbot @ git+https://github.com/yashab-cyber/hackbot.git"
+
+# 2. Configure (use Colab Secrets for API key)
+import os
+os.environ["HACKBOT_PROVIDER"] = "groq"
+os.environ["HACKBOT_MODEL"]    = "llama-3.3-70b-versatile"
+os.environ["HACKBOT_API_KEY"]  = "your-key"
+
+# 3. Use
+from hackbot.config import load_config
+from hackbot.core.engine import AIEngine
+from hackbot.modes.chat import ChatMode
+
+config = load_config()
+engine = AIEngine(config.ai)
+chat   = ChatMode(engine, config)
+print(chat.ask("How do I scan for open ports with nmap?", stream=False))
+```
+
+You can also run **Ollama models on Colab's free T4 GPU**:
+```python
+!curl -fsSL https://ollama.com/install.sh | sh
+!ollama pull xploiter/pentester   # ethical hacking model
+```
 
 ---
 
