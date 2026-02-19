@@ -75,18 +75,18 @@
 
 ---
 
-## � Screenshots
+## 📸 Screenshots
 
 <div align="center">
 
-### Chat Mode
-<img src="public/screenshots/hackbot-chat-mode.png" alt="HackBot Chat Mode" width="800">
+### CLI View
+<img src="public/screenshots/hackbot-cli-view.png" alt="HackBot CLI" width="800">
 
-### Agent Mode
-<img src="public/screenshots/hackbot-agent-mode.png" alt="HackBot Agent Mode" width="800">
+### GUI View
+<img src="public/screenshots/hackbot-gui-view.png" alt="HackBot GUI" width="800">
 
-### Plan Mode
-<img src="public/screenshots/hackbot-plan-mode.png" alt="HackBot Plan Mode" width="800">
+### Settings
+<img src="public/screenshots/hackbot-settings.png" alt="HackBot Settings" width="800">
 
 </div>
 
