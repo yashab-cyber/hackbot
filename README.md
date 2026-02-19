@@ -13,7 +13,7 @@
 [![Tests](https://img.shields.io/badge/tests-93%20passing-brightgreen.svg)]()
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yashab-cyber/hackbot/blob/main/examples/HackBot_Colab.ipynb)
 
-[Features](#-features) • [GUI](#%EF%B8%8F-native-desktop-gui) • [Install](#-installation) • [Quick Start](#-quick-start) • [Modes](#-modes) • [Intelligence](#%EF%B8%8F-intelligence-modules) • [Providers](#-ai-providers) • [Config](#%EF%B8%8F-configuration) • [Docker](#-docker) • [Colab](#-run-on-google-colab)
+[Features](#-features) • [Screenshots](#-screenshots) • [GUI](#%EF%B8%8F-native-desktop-gui) • [Install](#-installation) • [Quick Start](#-quick-start) • [Modes](#-modes) • [Intelligence](#%EF%B8%8F-intelligence-modules) • [Providers](#-ai-providers) • [Config](#%EF%B8%8F-configuration) • [Docker](#-docker) • [Colab](#-run-on-google-colab)
 
 </div>
 
@@ -75,7 +75,24 @@
 
 ---
 
-## 🖥️ Native Desktop GUI
+## � Screenshots
+
+<div align="center">
+
+### Chat Mode
+<img src="public/screenshots/hackbot-chat-mode.png" alt="HackBot Chat Mode" width="800">
+
+### Agent Mode
+<img src="public/screenshots/hackbot-agent-mode.png" alt="HackBot Agent Mode" width="800">
+
+### Plan Mode
+<img src="public/screenshots/hackbot-plan-mode.png" alt="HackBot Plan Mode" width="800">
+
+</div>
+
+---
+
+## �🖥️ Native Desktop GUI
 
 HackBot includes a full native desktop GUI — no browser needed. Launch it with a single command:
 
