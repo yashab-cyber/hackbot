@@ -12,8 +12,9 @@
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
 [![Tests](https://img.shields.io/badge/tests-93%20passing-brightgreen.svg)]()
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yashab-cyber/hackbot/blob/main/examples/HackBot_Colab.ipynb)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/X2tgYHXYq)
 
-[Features](#-features) • [Screenshots](#-screenshots) • [GUI](#%EF%B8%8F-native-desktop-gui) • [Install](#-installation) • [Quick Start](#-quick-start) • [Modes](#-modes) • [Intelligence](#%EF%B8%8F-intelligence-modules) • [Providers](#-ai-providers) • [Config](#%EF%B8%8F-configuration) • [Docker](#-docker) • [Colab](#-run-on-google-colab)
+[Features](#-features) • [Screenshots](#-screenshots) • [GUI](#%EF%B8%8F-native-desktop-gui) • [Install](#-installation) • [Quick Start](#-quick-start) • [Modes](#-modes) • [Intelligence](#%EF%B8%8F-intelligence-modules) • [Providers](#-ai-providers) • [Config](#%EF%B8%8F-configuration) • [Docker](#-docker) • [Colab](#-run-on-google-colab) • [Discord](#-community)
 
 </div>
 
@@ -1345,7 +1346,15 @@ See [DONATE.md](DONATE.md) for details, or reach out through any of the links ab
 
 ---
 
-## �📄 License
+## 💬 Community
+
+Join the HackBot Discord community to connect with other users, get help, share ideas, and stay updated!
+
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/X2tgYHXYq)
+
+---
+
+## 📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.
 
@@ -1355,6 +1364,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 **Built for ethical hackers, by ethical hackers. 🛡️**
 
-[Report Bug](https://github.com/yashab-cyber/hackbot/issues) • [Request Feature](https://github.com/yashab-cyber/hackbot/issues) • [❤️ Donate](DONATE.md)
+[Report Bug](https://github.com/yashab-cyber/hackbot/issues) • [Request Feature](https://github.com/yashab-cyber/hackbot/issues) • [❤️ Donate](DONATE.md) • [💬 Discord](https://discord.gg/X2tgYHXYq)
 
 </div>
