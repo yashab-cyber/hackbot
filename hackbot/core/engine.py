@@ -362,7 +362,13 @@ class AIEngine:
         return self._blocking_chat(messages)
 
     def is_configured(self) -> bool:
-        """Check if API key is set."""
+        """Check if API key or custom base URL is set."""
+        # A custom base_url (e.g. local proxy) counts as configured even
+        # without an explicit API key, and so do keyless providers.
+        if self.config.base_url:
+            return True
+        if self.config.provider in ("ollama", "local"):
+            return True
         return bool(self.config.api_key)
 
     def validate_api_key(self, timeout: float = 10.0) -> Dict[str, Any]:

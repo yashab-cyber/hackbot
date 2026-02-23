@@ -208,6 +208,40 @@ Explain your reasoning at each step."""
         self._last_response = response
         self._was_truncated = self._detect_truncation(response)
 
+        # Parse and execute any actions in the initial response
+        actions = self._parse_actions(response)
+        results_text = []
+
+        for action in actions:
+            if action.get("action") == "execute":
+                result = self._execute_action(action)
+                results_text.append(result)
+            elif action.get("action") == "finding":
+                self._record_finding(action)
+            elif action.get("action") == "generate_report":
+                report_result = self._generate_report(action)
+                results_text.append(report_result)
+
+        # Feed results back to AI if we executed commands
+        if results_text:
+            result_msg = "\n\n---\n\n".join(results_text)
+            self.conversation.add("user", f"Tool execution results:\n\n{result_msg}")
+
+            try:
+                analysis = self.engine.chat(
+                    self.conversation,
+                    stream=bool(self.on_token),
+                    on_token=self.on_token,
+                )
+            except Exception as e:
+                logger.error("Agent initial analysis failed: %s", e)
+                analysis = f"AI analysis request failed: {e}"
+
+            self.conversation.add("assistant", analysis)
+            self._last_response = analysis
+            self._was_truncated = self._detect_truncation(analysis)
+            response = response + "\n\n" + analysis
+
         # Auto-save
         self._auto_save()
 

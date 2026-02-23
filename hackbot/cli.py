@@ -290,9 +290,28 @@ class HackBotApp:
             on_token=self._on_token,
         )
 
-        print_info(f"Starting assessment against: {target}")
+        # Detect if the input looks like a command (e.g. "ping 127.0.0.1",
+        # "nmap -sV 10.0.0.1") rather than a bare target.  When the first
+        # word is a known tool name, split into actual_target + instruction
+        # so the AI runs the right command instead of treating the tool name
+        # as part of the target string.
+        instructions = ""
+        actual_target = target
+        allowed = set(self.config.agent.allowed_tools)
+        parts = target.split()
+        if len(parts) >= 2 and parts[0].lower() in allowed:
+            tool_name = parts[0].lower()
+            # The remaining tokens after the tool name — extract the target
+            # (last positional arg that looks like a host/IP/URL).
+            actual_target = parts[-1]
+            instructions = (
+                f"The user wants you to run the following command first: {target}\n"
+                f"Execute it immediately using a JSON action block, then analyse the results."
+            )
+
+        print_info(f"Starting assessment against: {actual_target}")
         console.print(f"\n[agent]HackBot Agent:[/]")
-        response = self.agent.start(target)
+        response = self.agent.start(actual_target, instructions=instructions)
         console.print()
         return True
 
