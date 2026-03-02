@@ -853,6 +853,18 @@ textarea#userInput::placeholder{color:var(--text-dim)}
         </div>
       </div>
 
+      <!-- Update Card -->
+      <div class="settings-card">
+        <h3>🔄 Updates</h3>
+        <div id="updateInfo" style="margin-bottom:12px">
+          <p style="color:var(--text-dim);font-size:.85rem">Check if a newer version of HackBot is available.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm" style="background:var(--cyan);color:var(--bg)" onclick="checkForUpdates()">🔍 Check for Updates</button>
+          <button class="btn btn-sm" style="background:var(--green);color:var(--bg);display:none" id="btnInstallUpdate" onclick="installUpdate()">⬆️ Install Update</button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -2782,6 +2794,64 @@ async function loadSettings() {
   } catch (e) {
     toast('Failed to load settings', 'error');
   }
+}
+
+async function checkForUpdates() {
+  const infoDiv = document.getElementById('updateInfo');
+  const installBtn = document.getElementById('btnInstallUpdate');
+  infoDiv.innerHTML = '<p style="color:var(--cyan);font-size:.85rem">Checking for updates...</p>';
+  installBtn.style.display = 'none';
+  try {
+    const resp = await fetch('/api/update/check');
+    const data = await resp.json();
+    if (data.error) {
+      infoDiv.innerHTML = '<p style="color:var(--red);font-size:.85rem">❌ ' + escapeHtml(data.error) + '</p>';
+      return;
+    }
+    let html = '<p style="font-size:.85rem">'
+      + '<span style="color:var(--text-dim)">Current:</span> <b>v' + escapeHtml(data.current_version) + '</b>'
+      + ' &nbsp;|&nbsp; '
+      + '<span style="color:var(--text-dim)">Latest:</span> <b>v' + escapeHtml(data.latest_version) + '</b>'
+      + '</p>';
+    if (data.update_available) {
+      html += '<p style="color:var(--green);font-size:.85rem;margin-top:6px">✨ Update available! v' + escapeHtml(data.current_version) + ' → v' + escapeHtml(data.latest_version) + '</p>';
+      if (data.published_at) html += '<p style="color:var(--text-dim);font-size:.8rem">Released: ' + escapeHtml(data.published_at.slice(0,10)) + '</p>';
+      installBtn.style.display = 'inline-flex';
+    } else {
+      html += '<p style="color:var(--green);font-size:.85rem;margin-top:6px">✅ You\'re up to date!</p>';
+    }
+    infoDiv.innerHTML = html;
+  } catch (e) {
+    infoDiv.innerHTML = '<p style="color:var(--red);font-size:.85rem">Failed to check for updates</p>';
+  }
+}
+
+async function installUpdate() {
+  const infoDiv = document.getElementById('updateInfo');
+  const installBtn = document.getElementById('btnInstallUpdate');
+  installBtn.disabled = true;
+  installBtn.textContent = '⏳ Updating...';
+  infoDiv.innerHTML = '<p style="color:var(--cyan);font-size:.85rem">Installing update... this may take a minute.</p>';
+  try {
+    const resp = await fetch('/api/update/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force: false }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      infoDiv.innerHTML = '<p style="color:var(--green);font-size:.85rem">✅ ' + escapeHtml(data.message).replace(/\n/g, '<br>') + '</p>';
+      toast('Update installed! Restart HackBot to use the new version.', 'success');
+    } else {
+      infoDiv.innerHTML = '<p style="color:var(--red);font-size:.85rem">❌ ' + escapeHtml(data.message) + '</p>';
+      toast('Update failed', 'error');
+    }
+  } catch (e) {
+    infoDiv.innerHTML = '<p style="color:var(--red);font-size:.85rem">Update request failed</p>';
+    toast('Update request failed', 'error');
+  }
+  installBtn.disabled = false;
+  installBtn.textContent = '⬆️ Install Update';
 }
 
 async function saveSettings() {

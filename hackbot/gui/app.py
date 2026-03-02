@@ -37,6 +37,7 @@ from hackbot.core.campaigns import (
 )
 from hackbot.core.remediation import RemediationEngine
 from hackbot.core.proxy import ProxyEngine, get_proxy_engine, reset_proxy_engine
+from hackbot.core.updater import check_for_updates, perform_update
 from hackbot.memory import MemoryManager
 from hackbot.modes.agent import AgentMode
 from hackbot.modes.chat import ChatMode
@@ -111,6 +112,30 @@ def api_status():
 def api_providers():
     """Return all provider definitions and their models."""
     return jsonify(PROVIDERS)
+
+
+@app.route("/api/update/check")
+def api_update_check():
+    """Check for available updates."""
+    info = check_for_updates()
+    return jsonify({
+        "current_version": info.current_version,
+        "latest_version": info.latest_version,
+        "update_available": info.update_available,
+        "release_url": info.release_url,
+        "release_notes": info.release_notes,
+        "published_at": info.published_at,
+        "error": info.error,
+    })
+
+
+@app.route("/api/update/install", methods=["POST"])
+def api_update_install():
+    """Perform self-update from GitHub."""
+    data = request.json or {}
+    force = data.get("force", False)
+    result = perform_update(force=force)
+    return jsonify(result)
 
 
 @app.route("/api/tools")

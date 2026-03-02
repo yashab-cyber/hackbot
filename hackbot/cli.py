@@ -44,6 +44,7 @@ from hackbot.core.campaigns import (
 from hackbot.core.remediation import RemediationEngine
 from hackbot.core.proxy import ProxyEngine, get_proxy_engine, reset_proxy_engine
 from hackbot.core.topology import TopologyParser
+from hackbot.core.updater import check_for_updates, perform_update
 from hackbot.modes.agent import AgentMode
 from hackbot.modes.chat import ChatMode
 from hackbot.modes.plan import PlanMode
@@ -177,6 +178,7 @@ class HackBotApp:
             "/campaign": lambda: self._handle_campaign(args),
             "/remediate": lambda: self._generate_remediations(args),
             "/proxy": lambda: self._handle_proxy(args),
+            "/update": lambda: self._check_update(args),
         }
 
         handler = commands.get(cmd)
@@ -389,6 +391,44 @@ class HackBotApp:
         console.print("  9. Configuration          — All options, paths, env variables")
         console.print("  10. Troubleshooting       — Common issues and solutions")
         console.print("")
+
+    def _check_update(self, args: str) -> bool:
+        """Check for updates and optionally perform update."""
+        if args.strip().lower() in ("install", "now", "yes", "apply"):
+            # Perform the update
+            print_info("Updating HackBot...")
+            console.print("[dim]  This may take a minute...[/]")
+            result = perform_update(force=("--force" in args))
+            if result["success"]:
+                print_success(result["message"])
+            else:
+                print_error(result["message"])
+            return True
+
+        # Just check for updates
+        print_info("Checking for updates...")
+        info = check_for_updates()
+        if info.error:
+            print_error(info.error)
+            return True
+
+        console.print(f"  [dim]Current version:[/]  [bold]v{info.current_version}[/]")
+        console.print(f"  [dim]Latest version:[/]   [bold]v{info.latest_version}[/]")
+
+        if info.update_available:
+            console.print(f"\n  [bold bright_green]✨ Update available![/]  v{info.current_version} → v{info.latest_version}")
+            if info.published_at:
+                console.print(f"  [dim]Released:[/] {info.published_at[:10]}")
+            if info.release_notes:
+                console.print(f"\n  [dim]Release notes:[/]")
+                for line in info.release_notes.split("\n")[:8]:
+                    console.print(f"    {line}")
+            console.print(f"\n  [dim]Run[/] [bold]/update install[/] [dim]to update now[/]")
+            console.print(f"  [dim]Or:[/]  [bold]hackbot update[/]")
+        else:
+            print_success(f"You're up to date! (v{info.current_version})")
+
+        return True
 
     def _set_key(self, key: str) -> bool:
         if not key:
@@ -1844,6 +1884,53 @@ def tools(ctx):
     config = ctx.obj["config"]
     tool_status = detect_tools(config.agent.allowed_tools)
     show_tools_status(tool_status)
+
+
+@main.command(name="update")
+@click.option("--force", is_flag=True, help="Force reinstall even if up to date")
+@click.option("--check", is_flag=True, help="Only check for updates, don't install")
+@click.pass_context
+def update_cmd(ctx, force, check):
+    """Check for updates and self-update from GitHub."""
+    show_banner(small=True)
+
+    info = check_for_updates()
+
+    if info.error:
+        print_error(info.error)
+        return
+
+    console.print(f"  [dim]Current version:[/]  [bold]v{info.current_version}[/]")
+    console.print(f"  [dim]Latest version:[/]   [bold]v{info.latest_version}[/]")
+
+    if not info.update_available and not force:
+        print_success(f"You're already up to date! (v{info.current_version})")
+        return
+
+    if info.update_available:
+        console.print(f"\n  [bold bright_green]✨ Update available![/]  v{info.current_version} → v{info.latest_version}")
+        if info.published_at:
+            console.print(f"  [dim]Released:[/] {info.published_at[:10]}")
+        if info.release_notes:
+            console.print(f"\n  [dim]Release notes:[/]")
+            for line in info.release_notes.split("\n")[:10]:
+                console.print(f"    {line}")
+            console.print()
+
+    if check:
+        if info.update_available:
+            console.print(f"  [dim]Run[/] [bold]hackbot update[/] [dim]to install[/]")
+        return
+
+    # Perform the update
+    print_info("Installing update...")
+    console.print("[dim]  This may take a minute...[/]\n")
+    result = perform_update(force=force)
+
+    if result["success"]:
+        print_success(result["message"])
+    else:
+        print_error(result["message"])
 
 
 @main.command()

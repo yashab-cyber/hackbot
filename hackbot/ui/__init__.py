@@ -276,6 +276,7 @@ def show_help() -> None:
   /plugins           List/manage custom tool plugins
   /campaign          Multi-target campaign management
   /version           Show version info
+  /update            Check for updates / self-update
   /donate            Show donation & contact info
   /manual            Open the HackBot user manual
   /quit              Exit HackBot
