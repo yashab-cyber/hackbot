@@ -210,36 +210,15 @@ Explain your reasoning at each step."""
 
         # Parse and execute any actions in the initial response
         actions = self._parse_actions(response)
-        results_text = []
 
-        for action in actions:
-            if action.get("action") == "execute":
-                result = self._execute_action(action)
-                results_text.append(result)
-            elif action.get("action") == "finding":
-                self._record_finding(action)
-            elif action.get("action") == "generate_report":
-                report_result = self._generate_report(action)
-                results_text.append(report_result)
+        # If the AI described a plan but didn't emit JSON action blocks, nudge it
+        if not actions and len(response) > 100:
+            logger.info("No action blocks found in initial response; nudging AI...")
+            actions = self._nudge_for_actions()
 
-        # Feed results back to AI if we executed commands
-        if results_text:
-            result_msg = "\n\n---\n\n".join(results_text)
-            self.conversation.add("user", f"Tool execution results:\n\n{result_msg}")
-
-            try:
-                analysis = self.engine.chat(
-                    self.conversation,
-                    stream=bool(self.on_token),
-                    on_token=self.on_token,
-                )
-            except Exception as e:
-                logger.error("Agent initial analysis failed: %s", e)
-                analysis = f"AI analysis request failed: {e}"
-
-            self.conversation.add("assistant", analysis)
-            self._last_response = analysis
-            self._was_truncated = self._detect_truncation(analysis)
+        # Process actions in a loop — including execute actions from follow-up analysis
+        analysis = self._process_actions_loop(actions)
+        if analysis:
             response = response + "\n\n" + analysis
 
         # Auto-save
@@ -293,55 +272,28 @@ Explain your reasoning at each step."""
 
         # Parse and execute any actions in the response
         actions = self._parse_actions(response)
-        results_text = []
 
+        # If the AI described a plan but didn't emit JSON action blocks, nudge it
+        if not actions and len(response) > 100:
+            logger.info("No action blocks found in step response; nudging AI...")
+            actions = self._nudge_for_actions()
+
+        # Process actions in a loop — including execute actions from follow-up analysis
+        is_complete = False
         for action in actions:
-            if action.get("action") == "execute":
-                result = self._execute_action(action)
-                results_text.append(result)
-            elif action.get("action") == "finding":
-                self._record_finding(action)
-            elif action.get("action") == "generate_report":
-                report_result = self._generate_report(action)
-                results_text.append(report_result)
-            elif action.get("action") == "complete":
-                self.is_running = False
-                return response, True
+            if action.get("action") == "complete":
+                is_complete = True
+                break
 
-        # Feed results back to AI if we executed commands
-        if results_text:
-            result_msg = "\n\n---\n\n".join(results_text)
-            self.conversation.add("user", f"Tool execution results:\n\n{result_msg}")
-
-            # Get AI analysis of results
-            try:
-                analysis = self.engine.chat(
-                    self.conversation,
-                    stream=bool(self.on_token),
-                    on_token=self.on_token,
-                )
-            except Exception as e:
-                logger.error("Agent analysis failed: %s", e)
-                analysis = f"AI analysis request failed: {e}"
-
-            self.conversation.add("assistant", analysis)
-            self._last_response = analysis
-            self._was_truncated = self._detect_truncation(analysis)
-
-            # Check for additional actions in analysis
-            more_actions = self._parse_actions(analysis)
-            for action in more_actions:
-                if action.get("action") == "finding":
-                    self._record_finding(action)
-                elif action.get("action") == "generate_report":
-                    self._generate_report(action)
-                elif action.get("action") == "complete":
-                    self.is_running = False
-                    self._auto_save()
-                    return analysis, True
-
+        if is_complete:
+            self.is_running = False
             self._auto_save()
-            return analysis, False
+            return response, True
+
+        analysis = self._process_actions_loop(actions)
+        if analysis:
+            self._auto_save()
+            return analysis, not self.is_running
 
         self._auto_save()
         return response, False
@@ -500,6 +452,71 @@ Explain your reasoning at each step."""
 
         return "\n".join(lines)
 
+    def _process_actions_loop(
+        self,
+        actions: List[Dict[str, Any]],
+        max_rounds: int = 10,
+    ) -> str:
+        """
+        Execute actions and keep processing follow-up actions from AI analysis.
+
+        When the AI responds to tool results with new execute actions (e.g. retrying
+        a failed command with different flags), this loop continues execution instead
+        of dropping back to the REPL prompt.
+
+        Returns the last AI analysis text, or "" if nothing was executed.
+        """
+        last_analysis = ""
+
+        for _round in range(max_rounds):
+            results_text = []
+
+            for action in actions:
+                atype = action.get("action")
+                if atype == "execute":
+                    result = self._execute_action(action)
+                    results_text.append(result)
+                elif atype == "finding":
+                    self._record_finding(action)
+                elif atype == "generate_report":
+                    report_result = self._generate_report(action)
+                    results_text.append(report_result)
+                elif atype == "complete":
+                    self.is_running = False
+                    return last_analysis
+
+            # If no commands were executed this round, we're done
+            if not results_text:
+                break
+
+            # Feed results back to AI
+            result_msg = "\n\n---\n\n".join(results_text)
+            self.conversation.add("user", f"Tool execution results:\n\n{result_msg}")
+
+            try:
+                analysis = self.engine.chat(
+                    self.conversation,
+                    stream=bool(self.on_token),
+                    on_token=self.on_token,
+                )
+            except Exception as e:
+                logger.error("Agent analysis failed: %s", e)
+                analysis = f"AI analysis request failed: {e}"
+
+            self.conversation.add("assistant", analysis)
+            self._last_response = analysis
+            self._was_truncated = self._detect_truncation(analysis)
+            last_analysis = analysis
+
+            # Parse follow-up actions (including execute) from the analysis
+            actions = self._parse_actions(analysis)
+
+            # If no more actions, stop the loop
+            if not actions:
+                break
+
+        return last_analysis
+
     def _parse_actions(self, text: str) -> List[Dict[str, Any]]:
         """Extract JSON action blocks from AI response."""
         actions = []
@@ -507,7 +524,13 @@ Explain your reasoning at each step."""
         patterns = [
             r'```json\s*\n({.*?})\s*\n```',
             r'```\s*\n({.*?"action".*?})\s*\n```',
+            # Standalone JSON (may appear without fences)
             r'(\{[^{}]*"action"\s*:\s*"(?:execute|finding|complete|generate_report)"[^{}]*\})',
+            # JSON block in fences but without trailing newline before closing fence
+            r'```json\s*\n({.*?})\s*```',
+            r'```\s*\n({.*?"action".*?})\s*```',
+            # JSON block with possible extra whitespace / indentation
+            r'```json\s+({.*?})\s+```',
         ]
 
         seen_spans: set[tuple[int, int]] = set()
@@ -534,6 +557,42 @@ Explain your reasoning at each step."""
                     continue
 
         return actions
+
+    def _nudge_for_actions(self) -> List[Dict[str, Any]]:
+        """
+        If the AI described commands but didn't emit JSON action blocks,
+        send a follow-up nudge asking it to output the proper format.
+
+        Returns any actions parsed from the nudge response.
+        """
+        if not self.conversation:
+            return []
+
+        nudge_msg = (
+            "I see you described your plan, but you did not include any JSON action blocks. "
+            "I cannot execute commands unless they are in the required JSON format.\n\n"
+            "Please output the FIRST command you want to run as a JSON action block now:\n"
+            '```json\n'
+            '{"action": "execute", "tool": "<tool_name>", "command": "<full_command>", "explanation": "<why>"}\n'
+            '```\n\n'
+            "Do NOT describe the command in text — just output the JSON block."
+        )
+        self.conversation.add("user", nudge_msg)
+
+        try:
+            response = self.engine.chat(
+                self.conversation,
+                stream=bool(self.on_token),
+                on_token=self.on_token,
+            )
+        except Exception as e:
+            logger.error("Nudge request failed: %s", e)
+            return []
+
+        self.conversation.add("assistant", response)
+        self._last_response = response
+
+        return self._parse_actions(response)
 
     def _execute_action(self, action: Dict[str, Any]) -> str:
         """Execute a tool action and return formatted result."""
