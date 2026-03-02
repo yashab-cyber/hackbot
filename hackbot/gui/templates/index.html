@@ -825,6 +825,13 @@ textarea#userInput::placeholder{color:var(--text-dim)}
             </select>
           </div>
           <div class="setting-row">
+            <label>Sudo Mode</label>
+            <select id="setSudoMode">
+              <option value="false">Disabled</option>
+              <option value="true">Run all commands with sudo</option>
+            </select>
+          </div>
+          <div class="setting-row">
             <label>Report Format</label>
             <select id="setReportFormat">
               <option value="html">HTML</option>
@@ -2770,6 +2777,7 @@ async function loadSettings() {
     document.getElementById('setMaxTokens').value = String(data.max_tokens || 4096);
     document.getElementById('setSafeMode').value = String(data.safe_mode);
     document.getElementById('setAutoConfirm').value = String(data.auto_confirm);
+    document.getElementById('setSudoMode').value = String(data.sudo_mode ?? false);
     document.getElementById('setReportFormat').value = data.report_format || 'html';
   } catch (e) {
     toast('Failed to load settings', 'error');
@@ -2792,6 +2800,7 @@ async function saveSettings() {
     max_tokens: parseInt(document.getElementById('setMaxTokens').value),
     safe_mode: document.getElementById('setSafeMode').value === 'true',
     auto_confirm: document.getElementById('setAutoConfirm').value === 'true',
+    sudo_mode: document.getElementById('setSudoMode').value === 'true',
     report_format: document.getElementById('setReportFormat').value,
   };
   const apiKey = document.getElementById('setApiKey').value;

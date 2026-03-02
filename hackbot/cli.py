@@ -328,6 +328,7 @@ class HackBotApp:
             "temperature": self.config.ai.temperature,
             "max_tokens": self.config.ai.max_tokens,
             "safe_mode": self.config.agent.safe_mode,
+            "sudo_mode": self.config.agent.sudo_mode,
         })
         return True
 
@@ -1727,10 +1728,11 @@ def get_prompt(mode: str) -> str:
 @click.option("--no-banner", is_flag=True, help="Skip banner display")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
 @click.option("--safe-mode/--no-safe-mode", default=None, help="Enable/disable safe mode")
+@click.option("--sudo", "sudo_mode", is_flag=True, default=False, help="Run all commands with sudo")
 @click.option("--gui", "-g", is_flag=True, help="Launch the desktop GUI")
 @click.version_option(__version__, prog_name="hackbot")
 @click.pass_context
-def main(ctx, model, provider, api_key, base_url, no_banner, verbose, safe_mode, gui):
+def main(ctx, model, provider, api_key, base_url, no_banner, verbose, safe_mode, sudo_mode, gui):
     """HackBot — AI Cybersecurity Assistant"""
     ctx.ensure_object(dict)
 
@@ -1749,6 +1751,8 @@ def main(ctx, model, provider, api_key, base_url, no_banner, verbose, safe_mode,
         config.ui.verbose = True
     if safe_mode is not None:
         config.agent.safe_mode = safe_mode
+    if sudo_mode:
+        config.agent.sudo_mode = True
 
     ctx.obj["config"] = config
 
@@ -1874,6 +1878,7 @@ def config(ctx):
         "temperature": cfg.ai.temperature,
         "max_tokens": cfg.ai.max_tokens,
         "safe_mode": cfg.agent.safe_mode,
+        "sudo_mode": cfg.agent.sudo_mode,
     })
     print_info(f"Config file: {Path(CONFIG_DIR) / 'config.yaml'}")
 

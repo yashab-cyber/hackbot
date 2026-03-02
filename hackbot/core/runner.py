@@ -128,6 +128,7 @@ class ToolRunner:
         timeout: int = 300,
         safe_mode: bool = True,
         auto_confirm: bool = False,
+        sudo_mode: bool = False,
         on_confirm: Optional[Callable[[str, str], bool]] = None,
         on_output: Optional[Callable[[str], None]] = None,
     ):
@@ -135,6 +136,7 @@ class ToolRunner:
         self.timeout = timeout
         self.safe_mode = safe_mode
         self.auto_confirm = auto_confirm
+        self.sudo_mode = sudo_mode
         self.on_confirm = on_confirm
         self.on_output = on_output
         self.history: List[ToolResult] = []
@@ -163,12 +165,14 @@ class ToolRunner:
             if blocked in cmd_lower:
                 return False, f"Blocked command detected: {blocked}"
 
-        # Extract tool name
+        # Extract tool name (skip 'sudo' prefix for validation)
         parts = shlex.split(command) if platform.system() != "Windows" else command.split()
         if not parts:
             return False, "Empty command"
 
         tool = os.path.basename(parts[0])
+        if tool == "sudo" and len(parts) > 1:
+            tool = os.path.basename(parts[1])
 
         # Check if tool is allowed
         if not self.is_tool_allowed(tool):
@@ -182,6 +186,13 @@ class ToolRunner:
 
         return True, "OK"
 
+    def _apply_sudo(self, command: str) -> str:
+        """Prepend sudo to command if sudo_mode is enabled and not already present."""
+        stripped = command.strip()
+        if self.sudo_mode and not stripped.startswith("sudo ") and platform.system() != "Windows":
+            return f"sudo {stripped}"
+        return command
+
     def execute(self, command: str, tool_name: str = "", explanation: str = "") -> ToolResult:
         """
         Execute a command synchronously with timeout and output capture.
@@ -189,6 +200,9 @@ class ToolRunner:
         # Plugin execution — intercept hackbot-plugin commands
         if command.strip().startswith("hackbot-plugin "):
             return self._execute_plugin(command, tool_name)
+
+        # Apply sudo prefix if enabled
+        command = self._apply_sudo(command)
 
         # Validate
         is_safe, reason = self.validate_command(command)
@@ -293,6 +307,9 @@ class ToolRunner:
 
     async def execute_async(self, command: str, tool_name: str = "") -> ToolResult:
         """Execute a command asynchronously."""
+        # Apply sudo prefix if enabled
+        command = self._apply_sudo(command)
+
         is_safe, reason = self.validate_command(command)
         if not is_safe:
             return ToolResult(

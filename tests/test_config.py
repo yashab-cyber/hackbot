@@ -24,6 +24,7 @@ def test_default_config():
     assert cfg.ai.model == "gpt-4o"
     assert cfg.ai.temperature == 0.2
     assert cfg.agent.safe_mode is True
+    assert cfg.agent.sudo_mode is False
     assert cfg.agent.max_steps == 50
     assert cfg.reporting.format == "html"
     assert cfg.ui.show_banner is True

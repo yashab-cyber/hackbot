@@ -151,6 +151,8 @@ def api_config():
             config.agent.safe_mode = data["safe_mode"]
         if "auto_confirm" in data:
             config.agent.auto_confirm = data["auto_confirm"]
+        if "sudo_mode" in data:
+            config.agent.sudo_mode = data["sudo_mode"]
         if "report_format" in data:
             config.reporting.format = data["report_format"]
 
@@ -179,6 +181,7 @@ def api_config():
         "max_tokens": config.ai.max_tokens,
         "safe_mode": config.agent.safe_mode,
         "auto_confirm": config.agent.auto_confirm,
+        "sudo_mode": config.agent.sudo_mode,
         "max_steps": config.agent.max_steps,
         "timeout": config.agent.timeout,
         "report_format": config.reporting.format,

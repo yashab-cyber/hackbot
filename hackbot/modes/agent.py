@@ -116,6 +116,7 @@ class AgentMode:
             timeout=config.agent.timeout,
             safe_mode=config.agent.safe_mode,
             auto_confirm=config.agent.auto_confirm,
+            sudo_mode=config.agent.sudo_mode,
             on_confirm=on_confirm,
             on_output=on_output,
         )

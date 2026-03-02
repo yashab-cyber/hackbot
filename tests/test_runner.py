@@ -110,3 +110,35 @@ def test_get_available_tools(runner):
     tools = runner.get_available_tools()
     assert isinstance(tools, dict)
     assert "echo" in tools
+
+
+def test_sudo_mode_disabled():
+    """Test that sudo_mode=False does not modify commands."""
+    r = ToolRunner(
+        allowed_tools=["echo"],
+        timeout=10,
+        safe_mode=False,
+        sudo_mode=False,
+    )
+    assert r._apply_sudo("echo hello") == "echo hello"
+
+
+def test_sudo_mode_enabled():
+    """Test that sudo_mode=True prepends sudo to commands."""
+    r = ToolRunner(
+        allowed_tools=["echo"],
+        timeout=10,
+        safe_mode=False,
+        sudo_mode=True,
+    )
+    if platform.system() != "Windows":
+        assert r._apply_sudo("echo hello") == "sudo echo hello"
+        # Should not double-prefix
+        assert r._apply_sudo("sudo echo hello") == "sudo echo hello"
+
+
+def test_validate_command_with_sudo_prefix(runner):
+    """Test that validate_command handles sudo-prefixed commands correctly."""
+    is_safe, reason = runner.validate_command("sudo nmap -sV target")
+    assert is_safe
+    assert reason == "OK"
