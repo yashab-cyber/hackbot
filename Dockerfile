@@ -6,7 +6,7 @@ FROM python:3.12-slim AS base
 
 LABEL maintainer="HackBot Team"
 LABEL description="HackBot AI Cybersecurity Assistant"
-LABEL version="1.0.0"
+LABEL version="1.0.1"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
