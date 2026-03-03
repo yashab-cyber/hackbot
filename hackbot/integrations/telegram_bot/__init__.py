@@ -26,6 +26,8 @@ Quick start::
 from hackbot.integrations.telegram_bot.constants import (
     MAX_TG_MESSAGE_LENGTH,
     PAIR_CODE_EXPIRY,
+    SESSION_TTL,
+    DEFAULT_BOT_TOKEN,
     AUTH_FILE,
     _TG_AVAILABLE,
     _QR_AVAILABLE,
@@ -58,6 +60,8 @@ __all__ = [
     # Constants
     "MAX_TG_MESSAGE_LENGTH",
     "PAIR_CODE_EXPIRY",
+    "SESSION_TTL",
+    "DEFAULT_BOT_TOKEN",
     "AUTH_FILE",
     "check_telegram_deps",
     "check_qr_deps",

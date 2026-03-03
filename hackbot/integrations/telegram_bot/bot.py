@@ -30,7 +30,9 @@ from hackbot.integrations.telegram_bot.auth import (
     generate_qr_terminal,
 )
 from hackbot.integrations.telegram_bot.constants import (
+    DEFAULT_BOT_TOKEN,
     PAIR_CODE_EXPIRY,
+    SESSION_TTL,
     _TG_AVAILABLE,
 )
 from hackbot.integrations.telegram_bot.session import TelegramUserSession
@@ -69,11 +71,21 @@ class HackBotTelegram:
             )
 
         self.config = config
-        self.token = token or os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        # Token resolution order: explicit > config file > env var > built-in default
+        self.token = (
+            token
+            or getattr(config.telegram, "token", "")
+            or os.environ.get("TELEGRAM_BOT_TOKEN", "")
+            or DEFAULT_BOT_TOKEN
+        )
         self.engine = AIEngine(config.ai)
         self.sessions: Dict[int, TelegramUserSession] = {}
         self.pairing = PairingState()
         self.pairing.load()
+        # Purge any expired sessions on startup
+        self.pairing.purge_expired(
+            getattr(config.telegram, "session_ttl_days", 7) * 86400
+        )
         self._app: Optional[Application] = None
         self._running = False
         self._bot_username = ""
@@ -110,17 +122,33 @@ class HackBotTelegram:
     # ── Auth wrapper ─────────────────────────────────────────────────────
 
     def _require_auth(self, handler):
-        """Wrap a handler so unauthorized users get a pairing prompt."""
+        """Wrap a handler so unauthorized users get a pairing prompt.
+
+        Uses the configured session_ttl_days for expiry checks.
+        When a session is still valid the 7-day clock is refreshed so
+        active users never get logged out mid-conversation.
+        """
+        ttl = getattr(self.config.telegram, "session_ttl_days", 7) * 86400
+
         async def wrapper(update, context):
             user_id = update.effective_user.id
-            if not self.pairing.is_authorized(user_id):
-                await update.message.reply_text(
-                    "🔒 <b>Not connected.</b>\n\n"
+            if not self.pairing.is_authorized(user_id, ttl=ttl):
+                # Session expired or never authorized
+                if user_id in self.sessions:
+                    del self.sessions[user_id]
+                msg = update.message or (update.callback_query and update.callback_query.message)
+                text = (
+                    "🔒 <b>Session expired or not connected.</b>\n\n"
                     "Run <code>hackbot telegram</code> on your machine "
-                    "and scan the QR code to connect.",
-                    parse_mode=ParseMode.HTML,
+                    "and scan the QR code to reconnect."
                 )
+                if update.message:
+                    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+                elif update.callback_query:
+                    await update.callback_query.answer("Session expired", show_alert=True)
                 return
+            # Refresh session clock on each interaction
+            self.pairing.refresh(user_id)
             return await handler(update, context)
         return wrapper
 
@@ -156,6 +184,7 @@ class HackBotTelegram:
         app.add_handler(CommandHandler("lang", auth(_bind(h.cmd_language))))
         app.add_handler(CommandHandler("config", auth(_bind(h.cmd_config))))
         app.add_handler(CommandHandler("reset", auth(_bind(h.cmd_reset))))
+        app.add_handler(CommandHandler("logout", _bind(h.cmd_logout)))
         app.add_handler(CommandHandler("export", auth(_bind(h.cmd_export))))
         app.add_handler(CommandHandler("version", auth(_bind(h.cmd_version))))
         app.add_handler(CommandHandler("status", auth(_bind(h.cmd_status))))

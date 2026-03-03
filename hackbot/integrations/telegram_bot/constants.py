@@ -12,6 +12,14 @@ MAX_TG_MESSAGE_LENGTH = 4096
 # QR code pairing
 PAIR_CODE_EXPIRY = 300  # 5 minutes
 
+# Session duration — 7 days (in seconds)
+SESSION_TTL = 7 * 24 * 60 * 60  # 604800
+
+# Default public bot token — the shared "HackBot" bot on Telegram.
+# Every HackBot installation connects through this bot; QR pairing
+# ensures only the correct host machine receives commands.
+DEFAULT_BOT_TOKEN = "8668614486:AAGG_N7jedhV6FaeWaRE_nkS5eYb8thqErc"
+
 # Persistent auth store
 AUTH_FILE = CONFIG_DIR / "telegram_auth.json"
 

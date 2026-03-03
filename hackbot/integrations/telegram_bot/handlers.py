@@ -24,6 +24,7 @@ from hackbot.modes.agent import AgentMode
 from hackbot.reporting import ReportGenerator
 
 from hackbot.integrations.telegram_bot.utils import format_html, split_message
+from hackbot.integrations.telegram_bot.constants import SESSION_TTL
 
 if TYPE_CHECKING:
     from hackbot.integrations.telegram_bot.bot import HackBotTelegram
@@ -52,6 +53,7 @@ async def cmd_start(bot: "HackBotTelegram", update: Update, context: ContextType
     if args and len(args) == 1:
         code = args[0]
         if bot.pairing.verify(code):
+            ttl_days = bot.config.telegram.session_ttl_days
             bot.pairing.authorize(user_id)
             bot.pairing.save()
             await update.message.reply_text(
@@ -60,6 +62,8 @@ async def cmd_start(bot: "HackBotTelegram", update: Update, context: ContextType
                 f"{update.effective_user.first_name}!\n\n"
                 f"Your device is now linked. You have full control "
                 f"of your HackBot instance from Telegram.\n\n"
+                f"📅 Session valid for <b>{ttl_days} days</b>.\n"
+                f"Use /logout to disconnect at any time.\n\n"
                 f"Type /help to see available commands.",
                 parse_mode=ParseMode.HTML,
             )
@@ -77,6 +81,16 @@ async def cmd_start(bot: "HackBotTelegram", update: Update, context: ContextType
 
     # ── Already paired — show dashboard ──────────────────────────────
     if bot.pairing.is_authorized(user_id):
+        # Refresh session clock on /start
+        bot.pairing.refresh(user_id)
+        bot.pairing.save()
+
+        ts = bot.pairing.authorized_users.get(user_id, 0)
+        import datetime
+        expires = datetime.datetime.fromtimestamp(
+            ts + bot.config.telegram.session_ttl_days * 86400
+        ).strftime("%b %d, %Y")
+
         keyboard = [
             [
                 InlineKeyboardButton("💬 Chat", callback_data="mode_chat"),
@@ -87,13 +101,17 @@ async def cmd_start(bot: "HackBotTelegram", update: Update, context: ContextType
                 InlineKeyboardButton("⚙️ Settings", callback_data="settings"),
                 InlineKeyboardButton("ℹ️ Help", callback_data="help"),
             ],
+            [
+                InlineKeyboardButton("🚪 Logout", callback_data="logout"),
+            ],
         ]
         session = bot._get_session(user_id)
         await update.message.reply_text(
             f"🤖 <b>HackBot v{__version__}</b>\n\n"
             f"Current mode: <b>{session.mode.upper()}</b>\n"
             f"Provider: <b>{bot.config.ai.provider}/{bot.config.ai.model}</b>\n"
-            f"Language: <b>{bot.config.ui.language}</b>\n\n"
+            f"Language: <b>{bot.config.ui.language}</b>\n"
+            f"Session expires: <b>{expires}</b>\n\n"
             f"Send any message to chat, or use the buttons below.",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(keyboard),
@@ -142,7 +160,8 @@ async def cmd_help(bot: "HackBotTelegram", update: Update, context: ContextTypes
         "/reset — Reset conversation\n"
         "/export — Export report\n"
         "/version — Show version\n"
-        "/status — Show connection status\n\n"
+        "/status — Show connection status\n"
+        "/logout — Disconnect from HackBot\n\n"
         "<i>Or just type any message to chat!</i>"
     )
     await update.message.reply_text(help_text, parse_mode=ParseMode.HTML)
@@ -474,6 +493,27 @@ async def cmd_reset(bot: "HackBotTelegram", update: Update, context: ContextType
     await update.message.reply_text("🔄 Session reset. Fresh start!")
 
 
+async def cmd_logout(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /logout — disconnect the Telegram user from this HackBot instance."""
+    user_id = update.effective_user.id
+    if bot.pairing.revoke(user_id):
+        bot.pairing.save()
+        # Also clear their in-memory session
+        if user_id in bot.sessions:
+            del bot.sessions[user_id]
+        await update.message.reply_text(
+            "🚪 <b>Logged out successfully.</b>\n\n"
+            "You've been disconnected from HackBot.\n"
+            "To reconnect, run <code>hackbot telegram</code> on your "
+            "machine and scan the QR code again.",
+            parse_mode=ParseMode.HTML,
+        )
+    else:
+        await update.message.reply_text(
+            "You're not currently connected. Use /start to begin pairing."
+        )
+
+
 async def cmd_export(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = bot._get_session(update.effective_user.id)
     if not session.agent_mode or not session.agent_mode.findings:
@@ -569,6 +609,17 @@ async def callback_handler(bot: "HackBotTelegram", update: Update, context: Cont
         )
     elif data == "help":
         await query.edit_message_text("Type /help to see all available commands.")
+    elif data == "logout":
+        bot.pairing.revoke(user_id)
+        bot.pairing.save()
+        if user_id in bot.sessions:
+            del bot.sessions[user_id]
+        await query.edit_message_text(
+            "🚪 <b>Logged out.</b>\n\n"
+            "Run <code>hackbot telegram</code> on your machine "
+            "and scan the QR code to reconnect.",
+            parse_mode=ParseMode.HTML,
+        )
 
 
 # ── Free-text message handler ────────────────────────────────────────────────

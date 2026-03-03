@@ -21,11 +21,12 @@ import secrets
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Optional
 
 from hackbot.integrations.telegram_bot.constants import (
     AUTH_FILE,
     PAIR_CODE_EXPIRY,
+    SESSION_TTL,
     _QR_AVAILABLE,
 )
 
@@ -34,11 +35,16 @@ from hackbot.integrations.telegram_bot.constants import (
 
 @dataclass
 class PairingState:
-    """Manages QR code pairing between a local HackBot and Telegram users."""
+    """Manages QR code pairing between a local HackBot and Telegram users.
+
+    Each authorized user has a timestamp. Sessions expire after SESSION_TTL
+    (default 7 days).  Users can also explicitly log out.
+    """
 
     code: str = ""
     created_at: float = 0.0
-    authorized_users: Set[int] = field(default_factory=set)
+    # user_id -> authorization timestamp
+    authorized_users: Dict[int, float] = field(default_factory=dict)
 
     # ── Code lifecycle ───────────────────────────────────────────────────
 
@@ -60,18 +66,57 @@ class PairingState:
 
     # ── User authorization ───────────────────────────────────────────────
 
-    def authorize(self, user_id: int) -> None:
-        self.authorized_users.add(user_id)
+    def authorize(self, user_id: int, ttl: int = 0) -> None:
+        """Authorize a user.  ``ttl`` overrides the default SESSION_TTL."""
+        self.authorized_users[user_id] = time.time()
 
-    def is_authorized(self, user_id: int) -> bool:
-        return user_id in self.authorized_users
+    def is_authorized(self, user_id: int, ttl: int = 0) -> bool:
+        """Check if user is authorized and session is still valid."""
+        ts = self.authorized_users.get(user_id)
+        if ts is None:
+            return False
+        max_age = ttl if ttl > 0 else SESSION_TTL
+        if time.time() - ts > max_age:
+            # Session expired — remove automatically
+            self.revoke(user_id)
+            self.save()
+            return False
+        return True
+
+    def revoke(self, user_id: int) -> bool:
+        """Revoke (logout) a user. Returns True if the user was authorized."""
+        if user_id in self.authorized_users:
+            del self.authorized_users[user_id]
+            return True
+        return False
+
+    def refresh(self, user_id: int) -> None:
+        """Refresh the session timestamp for a user (resets 7-day clock)."""
+        if user_id in self.authorized_users:
+            self.authorized_users[user_id] = time.time()
+
+    def purge_expired(self, ttl: int = 0) -> int:
+        """Remove all expired sessions. Returns count of purged users."""
+        max_age = ttl if ttl > 0 else SESSION_TTL
+        now = time.time()
+        expired = [uid for uid, ts in self.authorized_users.items()
+                   if now - ts > max_age]
+        for uid in expired:
+            del self.authorized_users[uid]
+        if expired:
+            self.save()
+        return len(expired)
 
     # ── Persistence ──────────────────────────────────────────────────────
 
     def save(self) -> None:
-        """Persist authorized users to disk."""
+        """Persist authorized users (with timestamps) to disk."""
         AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
-        data = {"authorized_users": list(self.authorized_users)}
+        data = {
+            "authorized_users": {
+                str(uid): ts for uid, ts in self.authorized_users.items()
+            }
+        }
         AUTH_FILE.write_text(json.dumps(data))
 
     def load(self) -> None:
@@ -79,8 +124,20 @@ class PairingState:
         if AUTH_FILE.exists():
             try:
                 data = json.loads(AUTH_FILE.read_text())
-                self.authorized_users = set(data.get("authorized_users", []))
-            except (json.JSONDecodeError, KeyError):
+                raw = data.get("authorized_users", {})
+                # Support both old format (list) and new format (dict w/ timestamps)
+                if isinstance(raw, list):
+                    # Migration from old format: treat as authorized now
+                    now = time.time()
+                    self.authorized_users = {int(uid): now for uid in raw}
+                    self.save()  # Re-save in new format
+                elif isinstance(raw, dict):
+                    self.authorized_users = {
+                        int(uid): float(ts) for uid, ts in raw.items()
+                    }
+                else:
+                    self.authorized_users = {}
+            except (json.JSONDecodeError, KeyError, ValueError):
                 pass
 
 

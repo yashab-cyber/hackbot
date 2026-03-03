@@ -91,6 +91,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "verbose": False,
         "language": "English",
     },
+    "telegram": {
+        "token": "",
+        "session_ttl_days": 7,
+    },
 }
 
 
@@ -130,11 +134,18 @@ class UIConfig:
 
 
 @dataclass
+class TelegramConfig:
+    token: str = ""
+    session_ttl_days: int = 7
+
+
+@dataclass
 class HackBotConfig:
     ai: AIConfig = field(default_factory=AIConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)
     reporting: ReportingConfig = field(default_factory=ReportingConfig)
     ui: UIConfig = field(default_factory=UIConfig)
+    telegram: TelegramConfig = field(default_factory=TelegramConfig)
 
 
 def load_config() -> HackBotConfig:
@@ -205,11 +216,16 @@ def load_config() -> HackBotConfig:
     if os.environ.get("HACKBOT_LANGUAGE"):
         merged.setdefault("ui", {})["language"] = os.environ["HACKBOT_LANGUAGE"]
 
+    # Telegram token env override
+    if os.environ.get("TELEGRAM_BOT_TOKEN"):
+        merged.setdefault("telegram", {})["token"] = os.environ["TELEGRAM_BOT_TOKEN"]
+
     cfg = HackBotConfig(
         ai=AIConfig(**merged.get("ai", {})),
         agent=AgentConfig(**merged.get("agent", {})),
         reporting=ReportingConfig(**merged.get("reporting", {})),
         ui=UIConfig(**merged.get("ui", {})),
+        telegram=TelegramConfig(**merged.get("telegram", {})),
     )
     return cfg
 
@@ -244,6 +260,10 @@ def save_config(cfg: HackBotConfig) -> None:
             "show_banner": cfg.ui.show_banner,
             "verbose": cfg.ui.verbose,
             "language": cfg.ui.language,
+        },
+        "telegram": {
+            "token": cfg.telegram.token,
+            "session_ttl_days": cfg.telegram.session_ttl_days,
         },
     }
     with open(CONFIG_FILE, "w") as f:

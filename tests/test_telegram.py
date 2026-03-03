@@ -102,8 +102,12 @@ class TestPairingState:
             ps2 = PairingState()
             ps2.load()
             data = json.loads(auth_file.read_text())
-            assert 123 in data["authorized_users"]
-            assert 456 in data["authorized_users"]
+            # authorized_users is now a dict of {str(user_id): timestamp}
+            assert "123" in data["authorized_users"]
+            assert "456" in data["authorized_users"]
+            # Loaded state should have both users
+            assert ps2.is_authorized(123)
+            assert ps2.is_authorized(456)
 
     def test_load_missing_file(self):
         from hackbot.integrations.telegram_bot import PairingState

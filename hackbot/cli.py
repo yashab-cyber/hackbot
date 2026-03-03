@@ -547,17 +547,14 @@ class HackBotApp:
             token_arg = args.strip().split(maxsplit=1)[1]
 
         if subcmd == "start":
+            # If user provides a custom token, persist it to config
+            if token_arg:
+                self.config.telegram.token = token_arg
+                save_config(self.config)
+
             bot = get_telegram_bot(self.config, token=token_arg)
             if bot.is_running:
                 print_warning("Telegram bot is already running.")
-                return True
-
-            if not bot.token:
-                print_error(
-                    "Telegram bot token not set.\n"
-                    "  Set TELEGRAM_BOT_TOKEN env var, or:\n"
-                    "  /telegram start <your_bot_token>"
-                )
                 return True
 
             result = bot.start_background()
@@ -2112,19 +2109,18 @@ def update_cmd(ctx, force, check):
 
 
 @main.command()
-@click.option("--token", "-t", default="", help="Telegram bot token from @BotFather")
+@click.option("--token", "-t", default="", help="Override Telegram bot token (uses built-in HackBot token by default)")
 @click.pass_context
 def telegram(ctx, token):
     """Start the Telegram bot for remote control of HackBot.
 
-    Scan the QR code with your Telegram app to pair your device.
-    All HackBot commands are available through the Telegram interface.
+    HackBot comes with a built-in public Telegram bot. Users search
+    "HackBot" on Telegram, tap Start, then scan the QR code displayed
+    here to pair their device.  Sessions last 7 days.
 
-    Setup:
-      1. Talk to @BotFather on Telegram -> /newbot -> get token
-      2. Run: hackbot telegram --token <YOUR_TOKEN>
-      3. Scan the QR code displayed
-      4. Control HackBot from Telegram!
+    Usage:
+      hackbot telegram           # Uses built-in HackBot bot
+      hackbot telegram -t TOKEN  # Use your own bot token
     """
     config = ctx.obj["config"]
     show_banner(small=True)
@@ -2151,16 +2147,12 @@ def telegram(ctx, token):
         )
         return
 
-    bot = HackBotTelegram(config, token=token)
+    # If user provides a custom token, persist it to config
+    if token:
+        config.telegram.token = token
+        save_config(config)
 
-    if not bot.token:
-        print_error(
-            "Telegram bot token not set.\n\n"
-            "  Get a token from @BotFather on Telegram, then:\n"
-            "    hackbot telegram --token <YOUR_TOKEN>\n"
-            "  Or set: TELEGRAM_BOT_TOKEN=<YOUR_TOKEN>"
-        )
-        return
+    bot = HackBotTelegram(config, token=token)
 
     # Fetch username and show pairing info
     import asyncio
@@ -2175,10 +2167,12 @@ def telegram(ctx, token):
         loop.close()
 
     pairing = bot.get_pairing_info()
+    ttl_days = config.telegram.session_ttl_days
 
     console.print(f"\n  [bold bright_green]🤖 HackBot Telegram Bot[/]")
     console.print(f"  [dim]Bot:[/] @{username}")
     console.print(f"  [dim]Paired users:[/] {pairing['authorized_users']}")
+    console.print(f"  [dim]Session duration:[/] {ttl_days} days")
 
     if pairing.get("qr_ascii"):
         console.print(f"\n  [bold]Scan this QR code with your Telegram app:[/]\n")
@@ -2189,7 +2183,8 @@ def telegram(ctx, token):
     else:
         console.print(f"\n  [dim]Open:[/] [cyan]{pairing['link']}[/]")
 
-    console.print(f"\n  [dim]Press Ctrl+C to stop[/]\n")
+    console.print(f"\n  [dim]Users search 'HackBot' on Telegram → Start → Scan QR[/]")
+    console.print(f"  [dim]Press Ctrl+C to stop[/]\n")
 
     try:
         bot.run_polling()
