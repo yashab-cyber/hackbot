@@ -223,7 +223,29 @@ class HackBotApp:
         except KeyboardInterrupt:
             console.print("\n[dim]Interrupted[/]")
         except Exception as e:
-            print_error(f"Error: {str(e)}")
+            err = str(e).lower()
+            if "connection" in err or "connect" in err or "refused" in err:
+                provider = self.config.ai.provider
+                if provider in ("ollama", "local"):
+                    print_error(
+                        "Connection error — cannot reach Ollama.\n\n"
+                        "  Make sure Ollama is running:\n"
+                        "    ollama serve\n\n"
+                        "  Then pull your model:\n"
+                        f"    ollama pull {self.config.ai.model}\n\n"
+                        "  Or switch to a cloud provider:\n"
+                        "    /provider groq\n"
+                        "    /key <your-api-key>"
+                    )
+                else:
+                    print_error(
+                        f"Connection error — cannot reach {provider} API.\n\n"
+                        "  Check your internet connection, or try:\n"
+                        "    /provider ollama    (for local AI)\n"
+                        "    /provider groq      (free cloud tier)"
+                    )
+            else:
+                print_error(f"Error: {str(e)}")
             if self.config.ui.verbose:
                 console.print_exception()
 

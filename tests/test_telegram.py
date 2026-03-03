@@ -313,14 +313,14 @@ class TestHackBotTelegram:
         assert app is not None
         assert bot._app is app
 
-    def test_start_background_no_token(self, config):
+    def test_default_token_applied(self, config):
+        """When no explicit token is given, the built-in default is used."""
         from hackbot.integrations.telegram_bot import HackBotTelegram, _TG_AVAILABLE
+        from hackbot.integrations.telegram_bot.constants import DEFAULT_BOT_TOKEN
         if not _TG_AVAILABLE:
             pytest.skip("python-telegram-bot not installed")
         bot = HackBotTelegram(config, token="")
-        result = bot.start_background()
-        assert result["ok"] is False
-        assert "token" in result["error"].lower()
+        assert bot.token == DEFAULT_BOT_TOKEN
 
     def test_stop_when_not_running(self, config):
         from hackbot.integrations.telegram_bot import HackBotTelegram, _TG_AVAILABLE
