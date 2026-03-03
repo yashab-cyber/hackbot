@@ -265,6 +265,7 @@ def show_help() -> None:
   /tools             Show available security tools
   /model <name>      Switch AI model
   /key <api_key>     Set API key
+  /language <lang>   Set response language (e.g. Spanish, Japanese)
 
 [bold]Other:[/]
   /help              Show this help

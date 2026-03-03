@@ -23,7 +23,7 @@ from flask import Flask, Response, jsonify, render_template, request, stream_wit
 
 from hackbot import __version__
 from hackbot.config import HackBotConfig, detect_platform, detect_tools, load_config, save_config
-from hackbot.core.engine import AIEngine, PROVIDERS
+from hackbot.core.engine import AIEngine, PROVIDERS, SUPPORTED_LANGUAGES
 from hackbot.core.cve import CVELookup
 from hackbot.core.compliance import ComplianceMapper
 from hackbot.core.osint import OSINTEngine
@@ -180,6 +180,8 @@ def api_config():
             config.agent.sudo_mode = data["sudo_mode"]
         if "report_format" in data:
             config.reporting.format = data["report_format"]
+        if "language" in data:
+            config.ui.language = data["language"]
 
         # Reinitialize engine
         _state["engine"] = AIEngine(config.ai)
@@ -210,6 +212,8 @@ def api_config():
         "max_steps": config.agent.max_steps,
         "timeout": config.agent.timeout,
         "report_format": config.reporting.format,
+        "language": config.ui.language,
+        "supported_languages": SUPPORTED_LANGUAGES,
     })
 
 

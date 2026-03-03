@@ -23,7 +23,7 @@ class ChatMode:
     def __init__(self, engine: AIEngine, config: HackBotConfig):
         self.engine = engine
         self.config = config
-        self.conversation = create_conversation("chat")
+        self.conversation = create_conversation("chat", language=config.ui.language)
         self.session_name: str = ""
         self._last_response: str = ""
         self._was_truncated: bool = False
@@ -109,7 +109,7 @@ class ChatMode:
 
     def reset(self) -> None:
         """Clear conversation history and start fresh session."""
-        self.conversation = create_conversation("chat")
+        self.conversation = create_conversation("chat", language=self.config.ui.language)
         self.session_id = self.memory.new_session_id("chat")
         self._last_response = ""
         self._was_truncated = False
@@ -164,7 +164,7 @@ class ChatMode:
             else:
                 return False
 
-        self.conversation = create_conversation("chat")
+        self.conversation = create_conversation("chat", language=self.config.ui.language)
         self.session_name = data.get("name", "")
         self.session_id = data.get("id", session_id)
         self.memory.current_session_id = self.session_id

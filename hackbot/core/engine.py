@@ -464,20 +464,120 @@ class AIEngine:
             return {"valid": False, "message": friendly, "error": err_msg[:500]}
 
 
-def create_conversation(mode: str, target: str = "") -> Conversation:
-    """Create a new conversation with the appropriate system prompt."""
+# ── Supported Languages ──────────────────────────────────────────────────────
+
+SUPPORTED_LANGUAGES: Dict[str, str] = {
+    "English": "English",
+    "Spanish": "Español",
+    "French": "Français",
+    "German": "Deutsch",
+    "Italian": "Italiano",
+    "Portuguese": "Português",
+    "Russian": "Русский",
+    "Chinese": "中文",
+    "Japanese": "日本語",
+    "Korean": "한국어",
+    "Arabic": "العربية",
+    "Hindi": "हिन्दी",
+    "Bengali": "বাংলা",
+    "Urdu": "اردو",
+    "Turkish": "Türkçe",
+    "Vietnamese": "Tiếng Việt",
+    "Thai": "ไทย",
+    "Indonesian": "Bahasa Indonesia",
+    "Malay": "Bahasa Melayu",
+    "Dutch": "Nederlands",
+    "Polish": "Polski",
+    "Ukrainian": "Українська",
+    "Czech": "Čeština",
+    "Romanian": "Română",
+    "Greek": "Ελληνικά",
+    "Hungarian": "Magyar",
+    "Swedish": "Svenska",
+    "Norwegian": "Norsk",
+    "Danish": "Dansk",
+    "Finnish": "Suomi",
+    "Hebrew": "עברית",
+    "Persian": "فارسی",
+    "Swahili": "Kiswahili",
+    "Tamil": "தமிழ்",
+    "Telugu": "తెలుగు",
+    "Marathi": "मराठी",
+    "Gujarati": "ગુજરાતી",
+    "Kannada": "ಕನ್ನಡ",
+    "Malayalam": "മലയാളം",
+    "Punjabi": "ਪੰਜਾਬੀ",
+    "Tagalog": "Tagalog",
+    "Burmese": "မြန်မာ",
+    "Khmer": "ភាសាខ្មែរ",
+    "Lao": "ລາວ",
+    "Nepali": "नेपाली",
+    "Sinhala": "සිංහල",
+    "Amharic": "አማርኛ",
+    "Yoruba": "Yorùbá",
+    "Igbo": "Igbo",
+    "Hausa": "Hausa",
+    "Zulu": "isiZulu",
+    "Afrikaans": "Afrikaans",
+    "Catalan": "Català",
+    "Croatian": "Hrvatski",
+    "Serbian": "Српски",
+    "Slovak": "Slovenčina",
+    "Slovenian": "Slovenščina",
+    "Bulgarian": "Български",
+    "Lithuanian": "Lietuvių",
+    "Latvian": "Latviešu",
+    "Estonian": "Eesti",
+    "Georgian": "ქართული",
+    "Armenian": "Հայերեն",
+    "Azerbaijani": "Azərbaycan",
+    "Kazakh": "Қазақ",
+    "Uzbek": "Oʻzbek",
+    "Mongolian": "Монгол",
+    "Tibetan": "བོད་སྐད",
+    "Pashto": "پښتو",
+    "Kurdish": "Kurdî",
+    "Somali": "Soomaali",
+    "Malagasy": "Malagasy",
+}
+
+
+def _build_language_instruction(language: str) -> str:
+    """Build a language instruction to inject into system prompts."""
+    if not language or language == "English":
+        return ""
+    native = SUPPORTED_LANGUAGES.get(language, language)
+    return (
+        f"\n\nLANGUAGE INSTRUCTION:\n"
+        f"You MUST respond in **{language}** ({native}). All your output — explanations, "
+        f"analysis, findings, recommendations, plan text, and conversational replies — "
+        f"MUST be written in {language}. Technical terms, tool names, command syntax, "
+        f"code blocks, and JSON action blocks should remain in English, but all "
+        f"surrounding text and descriptions must be in {language}."
+    )
+
+
+def create_conversation(mode: str, target: str = "", language: str = "English") -> Conversation:
+    """Create a new conversation with the appropriate system prompt.
+
+    Args:
+        mode: Conversation mode — 'chat', 'agent', or 'plan'.
+        target: Target for agent mode assessments.
+        language: Language for AI responses (default: English).
+    """
     conv = Conversation(mode=mode, target=target)
+    lang_instruction = _build_language_instruction(language)
 
     if mode == "chat":
-        conv.add("system", SYSTEM_PROMPT_CHAT)
+        conv.add("system", SYSTEM_PROMPT_CHAT + lang_instruction)
     elif mode == "agent":
         system = SYSTEM_PROMPT_AGENT
         if target:
             system += f"\n\nTarget for this assessment: {target}"
-        conv.add("system", system)
+        conv.add("system", system + lang_instruction)
     elif mode == "plan":
-        conv.add("system", SYSTEM_PROMPT_PLAN)
+        conv.add("system", SYSTEM_PROMPT_PLAN + lang_instruction)
     else:
-        conv.add("system", SYSTEM_PROMPT_CHAT)
+        conv.add("system", SYSTEM_PROMPT_CHAT + lang_instruction)
 
     return conv

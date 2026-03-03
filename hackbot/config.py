@@ -89,6 +89,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "theme": "dark",
         "show_banner": True,
         "verbose": False,
+        "language": "English",
     },
 }
 
@@ -125,6 +126,7 @@ class UIConfig:
     theme: str = "dark"
     show_banner: bool = True
     verbose: bool = False
+    language: str = "English"
 
 
 @dataclass
@@ -199,6 +201,10 @@ def load_config() -> HackBotConfig:
             merged["ai"]["provider"] = "openrouter"
             merged["ai"]["model"] = "anthropic/claude-sonnet-4-20250514"
 
+    # Language override
+    if os.environ.get("HACKBOT_LANGUAGE"):
+        merged.setdefault("ui", {})["language"] = os.environ["HACKBOT_LANGUAGE"]
+
     cfg = HackBotConfig(
         ai=AIConfig(**merged.get("ai", {})),
         agent=AgentConfig(**merged.get("agent", {})),
@@ -237,6 +243,7 @@ def save_config(cfg: HackBotConfig) -> None:
             "theme": cfg.ui.theme,
             "show_banner": cfg.ui.show_banner,
             "verbose": cfg.ui.verbose,
+            "language": cfg.ui.language,
         },
     }
     with open(CONFIG_FILE, "w") as f:

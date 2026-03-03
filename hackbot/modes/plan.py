@@ -141,7 +141,7 @@ class PlanMode:
     def __init__(self, engine: AIEngine, config: HackBotConfig):
         self.engine = engine
         self.config = config
-        self.conversation = create_conversation("plan")
+        self.conversation = create_conversation("plan", language=config.ui.language)
         self.current_plan: Optional[Dict[str, Any]] = None
 
     def create_plan(
@@ -351,7 +351,7 @@ Scope Document:
 
     def reset(self) -> None:
         """Reset planning session."""
-        self.conversation = create_conversation("plan")
+        self.conversation = create_conversation("plan", language=self.config.ui.language)
         self.current_plan = None
 
     @staticmethod

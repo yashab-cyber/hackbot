@@ -156,7 +156,7 @@ class AgentMode:
         self._step_count = 0
         self.is_running = True
 
-        self.conversation = create_conversation("agent", target)
+        self.conversation = create_conversation("agent", target, language=self.config.ui.language)
 
         # Add scope and available tools context
         available_tools = self.runner.get_available_tools()
@@ -392,7 +392,7 @@ Explain your reasoning at each step."""
     def ask(self, question: str) -> str:
         """Ask the agent a question in the context of the current assessment."""
         if not self.conversation:
-            self.conversation = create_conversation("agent", self.target)
+            self.conversation = create_conversation("agent", self.target, language=self.config.ui.language)
 
         self.conversation.add("user", question)
         response = self.engine.chat(

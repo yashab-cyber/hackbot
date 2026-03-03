@@ -842,6 +842,19 @@ textarea#userInput::placeholder{color:var(--text-dim)}
         </div>
       </div>
 
+      <!-- Language Card -->
+      <div class="settings-card">
+        <h3>🌍 Language</h3>
+        <div class="settings-grid">
+          <div class="setting-row" style="grid-column:span 2">
+            <label>Response Language <span style="color:var(--text-dim);font-weight:normal">(AI will respond in this language)</span></label>
+            <select id="setLanguage">
+              <!-- populated dynamically by loadSettings -->
+            </select>
+          </div>
+        </div>
+      </div>
+
       <!-- Quick Setup Card -->
       <div class="settings-card">
         <h3>⚡ Quick Setup</h3>
@@ -2791,6 +2804,18 @@ async function loadSettings() {
     document.getElementById('setAutoConfirm').value = String(data.auto_confirm);
     document.getElementById('setSudoMode').value = String(data.sudo_mode ?? false);
     document.getElementById('setReportFormat').value = data.report_format || 'html';
+
+    // Populate language dropdown
+    const langSelect = document.getElementById('setLanguage');
+    langSelect.innerHTML = '';
+    const languages = data.supported_languages || {'English': 'English'};
+    for (const [name, native] of Object.entries(languages)) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name === native ? name : `${name} (${native})`;
+      langSelect.appendChild(opt);
+    }
+    langSelect.value = data.language || 'English';
   } catch (e) {
     toast('Failed to load settings', 'error');
   }
@@ -2872,6 +2897,7 @@ async function saveSettings() {
     auto_confirm: document.getElementById('setAutoConfirm').value === 'true',
     sudo_mode: document.getElementById('setSudoMode').value === 'true',
     report_format: document.getElementById('setReportFormat').value,
+    language: document.getElementById('setLanguage').value,
   };
   const apiKey = document.getElementById('setApiKey').value;
   if (apiKey) body.api_key = apiKey;

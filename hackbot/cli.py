@@ -31,6 +31,7 @@ from hackbot.config import (
     save_config,
 )
 from hackbot.core.engine import AIEngine, PROVIDERS
+from hackbot.core.engine import SUPPORTED_LANGUAGES
 from hackbot.core.cve import CVELookup
 from hackbot.core.compliance import ComplianceMapper
 from hackbot.core.osint import OSINTEngine
@@ -179,6 +180,8 @@ class HackBotApp:
             "/remediate": lambda: self._generate_remediations(args),
             "/proxy": lambda: self._handle_proxy(args),
             "/update": lambda: self._check_update(args),
+            "/language": lambda: self._set_language(args),
+            "/lang": lambda: self._set_language(args),
         }
 
         handler = commands.get(cmd)
@@ -331,6 +334,7 @@ class HackBotApp:
             "max_tokens": self.config.ai.max_tokens,
             "safe_mode": self.config.agent.safe_mode,
             "sudo_mode": self.config.agent.sudo_mode,
+            "language": self.config.ui.language,
         })
         return True
 
@@ -452,6 +456,64 @@ class HackBotApp:
             print_error(result["message"])
             print_warning("API key saved but may not work. Use /key to set a valid key.")
             save_config(self.config)
+        return True
+
+    def _set_language(self, lang: str) -> bool:
+        """Set the application language for all AI responses."""
+        if not lang:
+            # Show current language and list all available languages
+            current = self.config.ui.language
+            native = SUPPORTED_LANGUAGES.get(current, current)
+            print_info(f"Current language: {current} ({native})")
+            console.print("\n[bold]Available languages:[/]")
+            cols = []
+            for name, native_name in sorted(SUPPORTED_LANGUAGES.items()):
+                marker = " [green]◀[/]" if name == current else ""
+                cols.append(f"  [cyan]{name}[/] ({native_name}){marker}")
+            # Print in 3 columns
+            per_col = (len(cols) + 2) // 3
+            for i in range(per_col):
+                row_parts = []
+                for c in range(3):
+                    idx = i + c * per_col
+                    if idx < len(cols):
+                        row_parts.append(f"{cols[idx]:<40}")
+                console.print("".join(row_parts))
+            console.print(f"\n[dim]Usage: /language <name>  (e.g. /language Spanish)[/]")
+            return True
+
+        # Match language name (case-insensitive)
+        lang_input = lang.strip()
+        matched = None
+        for name in SUPPORTED_LANGUAGES:
+            if name.lower() == lang_input.lower():
+                matched = name
+                break
+        if not matched:
+            # Try partial match
+            for name in SUPPORTED_LANGUAGES:
+                if name.lower().startswith(lang_input.lower()):
+                    matched = name
+                    break
+        if not matched:
+            print_error(
+                f"Unknown language: {lang_input}\n"
+                f"  Type /language to see all available languages."
+            )
+            return True
+
+        self.config.ui.language = matched
+        save_config(self.config)
+
+        # Reinitialize modes so new conversations use the new language
+        self.chat = ChatMode(self.engine, self.config)
+        self.plan = PlanMode(self.engine, self.config)
+        if self.agent:
+            self.agent = None  # Agent will be recreated on next /agent start
+
+        native = SUPPORTED_LANGUAGES[matched]
+        print_success(f"Language set to: {matched} ({native})")
+        print_info("All new conversations will use this language.")
         return True
 
     def _set_provider(self, provider: str) -> bool:
