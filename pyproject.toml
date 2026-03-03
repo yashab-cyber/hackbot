@@ -60,6 +60,10 @@ dev = [
     "ruff>=0.2",
     "black>=24.0",
 ]
+telegram = [
+    "python-telegram-bot>=21.0",
+    "qrcode[pil]>=7.4",
+]
 all = [
     "flask>=3.0",
     "pywebview>=5.0",
@@ -73,6 +77,8 @@ all = [
     "paramiko>=3.4",
     "beautifulsoup4>=4.12",
     "lxml>=5.1",
+    "python-telegram-bot>=21.0",
+    "qrcode[pil]>=7.4",
 ]
 
 [project.scripts]

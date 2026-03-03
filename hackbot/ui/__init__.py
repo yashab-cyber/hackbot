@@ -280,6 +280,7 @@ def show_help() -> None:
   /update            Check for updates / self-update
   /donate            Show donation & contact info
   /manual            Open the HackBot user manual
+  /telegram          Telegram bot control (start/stop/status/qr)
   /quit              Exit HackBot
 """
     console.print(help_text)

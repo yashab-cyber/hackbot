@@ -1538,6 +1538,105 @@ def api_campaign_report():
     return jsonify({"path": str(path), "campaign": campaign.to_dict()})
 
 
+# ── Routes: Telegram Bot ─────────────────────────────────────────────────────
+
+@app.route("/api/telegram/start", methods=["POST"])
+def api_telegram_start():
+    """Start the Telegram bot."""
+    try:
+        from hackbot.integrations.telegram_bot import (
+            check_telegram_deps, get_telegram_bot,
+        )
+    except ImportError:
+        return jsonify({"ok": False, "error": "Telegram dependencies not installed"}), 400
+
+    if not check_telegram_deps():
+        return jsonify({"ok": False, "error": "Telegram dependencies not installed"}), 400
+
+    data = request.json or {}
+    token = data.get("token", "")
+    config = _state["config"]
+    bot = get_telegram_bot(config, token=token)
+    result = bot.start_background()
+    if not result.get("ok"):
+        return jsonify(result), 400
+
+    # Don't send raw QR bytes through JSON
+    result.pop("qr_png", None)
+    return jsonify(result)
+
+
+@app.route("/api/telegram/stop", methods=["POST"])
+def api_telegram_stop():
+    """Stop the Telegram bot."""
+    try:
+        from hackbot.integrations.telegram_bot import get_telegram_bot, reset_telegram_bot
+    except ImportError:
+        return jsonify({"ok": False, "error": "Not available"}), 400
+
+    bot = get_telegram_bot(_state["config"])
+    result = bot.stop()
+    if result.get("ok"):
+        reset_telegram_bot()
+    return jsonify(result)
+
+
+@app.route("/api/telegram/status")
+def api_telegram_status():
+    """Get Telegram bot status."""
+    try:
+        from hackbot.integrations.telegram_bot import get_telegram_bot
+    except ImportError:
+        return jsonify({"available": False, "running": False})
+
+    bot = get_telegram_bot(_state["config"])
+    return jsonify({
+        "available": True,
+        "running": bot.is_running,
+        "bot_username": bot.bot_username,
+        "authorized_users": len(bot.pairing.authorized_users),
+        "active_sessions": len(bot.sessions),
+    })
+
+
+@app.route("/api/telegram/qr", methods=["POST"])
+def api_telegram_qr():
+    """Generate a new QR pairing code."""
+    try:
+        from hackbot.integrations.telegram_bot import get_telegram_bot
+    except ImportError:
+        return jsonify({"ok": False, "error": "Not available"}), 400
+
+    bot = get_telegram_bot(_state["config"])
+    if not bot.is_running:
+        return jsonify({"ok": False, "error": "Bot is not running"}), 400
+
+    info = bot.get_pairing_info()
+    info.pop("qr_png", None)  # Don't send raw bytes
+    info["ok"] = True
+    return jsonify(info)
+
+
+@app.route("/api/telegram/qr-image")
+def api_telegram_qr_image():
+    """Return QR code as a PNG image."""
+    try:
+        from hackbot.integrations.telegram_bot import get_telegram_bot
+    except ImportError:
+        return "Not available", 404
+
+    bot = get_telegram_bot(_state["config"])
+    if not bot.is_running:
+        return "Bot not running", 400
+
+    info = bot.get_pairing_info()
+    qr_bytes = info.get("qr_png")
+    if not qr_bytes:
+        return "QR not available", 404
+
+    return Response(qr_bytes, mimetype="image/png")
+
+
 # ── Launch ───────────────────────────────────────────────────────────────────
 
 def _start_flask(host: str, port: int) -> None:

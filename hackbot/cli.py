@@ -182,6 +182,7 @@ class HackBotApp:
             "/update": lambda: self._check_update(args),
             "/language": lambda: self._set_language(args),
             "/lang": lambda: self._set_language(args),
+            "/telegram": lambda: self._handle_telegram(args),
         }
 
         handler = commands.get(cmd)
@@ -514,6 +515,121 @@ class HackBotApp:
         native = SUPPORTED_LANGUAGES[matched]
         print_success(f"Language set to: {matched} ({native})")
         print_info("All new conversations will use this language.")
+        return True
+
+    def _handle_telegram(self, args: str) -> bool:
+        """Handle /telegram commands: start, stop, status, qr."""
+        try:
+            from hackbot.integrations.telegram_bot import (
+                HackBotTelegram,
+                check_telegram_deps,
+                get_telegram_bot,
+                reset_telegram_bot,
+                generate_qr_terminal,
+            )
+        except ImportError:
+            print_error(
+                "Telegram bot dependencies not installed.\n"
+                "  Install with: pip install 'python-telegram-bot>=21.0' 'qrcode[pil]>=7.4'"
+            )
+            return True
+
+        if not check_telegram_deps():
+            print_error(
+                "Telegram bot dependencies not installed.\n"
+                "  Install with: pip install 'python-telegram-bot>=21.0' 'qrcode[pil]>=7.4'"
+            )
+            return True
+
+        subcmd = args.strip().lower().split()[0] if args.strip() else "start"
+        token_arg = ""
+        if subcmd == "start" and len(args.strip().split()) > 1:
+            token_arg = args.strip().split(maxsplit=1)[1]
+
+        if subcmd == "start":
+            bot = get_telegram_bot(self.config, token=token_arg)
+            if bot.is_running:
+                print_warning("Telegram bot is already running.")
+                return True
+
+            if not bot.token:
+                print_error(
+                    "Telegram bot token not set.\n"
+                    "  Set TELEGRAM_BOT_TOKEN env var, or:\n"
+                    "  /telegram start <your_bot_token>"
+                )
+                return True
+
+            result = bot.start_background()
+            if not result.get("ok"):
+                print_error(f"Failed to start Telegram bot: {result.get('error', 'unknown')}")
+                return True
+
+            print_success(f"Telegram bot started: @{result['bot_username']}")
+
+            # Show QR code
+            if result.get("qr_ascii"):
+                console.print(f"\n[bold]Scan this QR code with your Telegram app:[/]\n")
+                console.print(result["qr_ascii"])
+                console.print(f"\n[dim]Or open this link:[/] [cyan]{result['link']}[/]")
+                console.print(f"[dim]Pairing code expires in {result['expires_in']}s[/]\n")
+            else:
+                console.print(f"\n[dim]Open:[/] [cyan]{result['link']}[/]\n")
+
+            if result.get("authorized_users", 0) > 0:
+                print_info(f"{result['authorized_users']} previously paired user(s) can connect directly.")
+
+        elif subcmd == "stop":
+            try:
+                bot = get_telegram_bot(self.config)
+                result = bot.stop()
+                if result.get("ok"):
+                    print_success("Telegram bot stopped.")
+                    reset_telegram_bot()
+                else:
+                    print_warning(result.get("message", "Bot is not running."))
+            except Exception:
+                print_warning("Telegram bot is not running.")
+
+        elif subcmd == "status":
+            try:
+                bot = get_telegram_bot(self.config)
+                if bot.is_running:
+                    print_success(f"Telegram bot is running: @{bot.bot_username}")
+                    print_info(f"Authorized users: {len(bot.pairing.authorized_users)}")
+                    print_info(f"Active sessions: {len(bot.sessions)}")
+                else:
+                    print_info("Telegram bot is not running.")
+            except Exception:
+                print_info("Telegram bot is not running.")
+
+        elif subcmd == "qr":
+            try:
+                bot = get_telegram_bot(self.config)
+                if not bot.is_running:
+                    print_warning("Bot is not running. Start it with /telegram start")
+                    return True
+
+                info = bot.get_pairing_info()
+                if info.get("qr_ascii"):
+                    console.print(f"\n[bold]Scan this QR code:[/]\n")
+                    console.print(info["qr_ascii"])
+                    console.print(f"\n[dim]Link:[/] [cyan]{info['link']}[/]")
+                    console.print(f"[dim]Expires in {info['expires_in']}s[/]\n")
+                else:
+                    console.print(f"[dim]Link:[/] [cyan]{info['link']}[/]")
+            except Exception as e:
+                print_error(f"Error: {e}")
+
+        else:
+            print_info(
+                "Telegram commands:\n"
+                "  /telegram start [token]  Start the bot\n"
+                "  /telegram stop           Stop the bot\n"
+                "  /telegram status         Show status\n"
+                "  /telegram qr             Re-display QR code"
+            )
+
         return True
 
     def _set_provider(self, provider: str) -> bool:
@@ -1993,6 +2109,94 @@ def update_cmd(ctx, force, check):
         print_success(result["message"])
     else:
         print_error(result["message"])
+
+
+@main.command()
+@click.option("--token", "-t", default="", help="Telegram bot token from @BotFather")
+@click.pass_context
+def telegram(ctx, token):
+    """Start the Telegram bot for remote control of HackBot.
+
+    Scan the QR code with your Telegram app to pair your device.
+    All HackBot commands are available through the Telegram interface.
+
+    Setup:
+      1. Talk to @BotFather on Telegram -> /newbot -> get token
+      2. Run: hackbot telegram --token <YOUR_TOKEN>
+      3. Scan the QR code displayed
+      4. Control HackBot from Telegram!
+    """
+    config = ctx.obj["config"]
+    show_banner(small=True)
+
+    try:
+        from hackbot.integrations.telegram_bot import (
+            HackBotTelegram,
+            check_telegram_deps,
+            generate_qr_terminal,
+        )
+    except ImportError:
+        print_error(
+            "Telegram bot dependencies not installed.\n"
+            "  Install with: pip install 'python-telegram-bot>=21.0' 'qrcode[pil]>=7.4'\n"
+            "  Or: pip install hackbot[telegram]"
+        )
+        return
+
+    if not check_telegram_deps():
+        print_error(
+            "Telegram bot dependencies not installed.\n"
+            "  Install with: pip install 'python-telegram-bot>=21.0' 'qrcode[pil]>=7.4'\n"
+            "  Or: pip install hackbot[telegram]"
+        )
+        return
+
+    bot = HackBotTelegram(config, token=token)
+
+    if not bot.token:
+        print_error(
+            "Telegram bot token not set.\n\n"
+            "  Get a token from @BotFather on Telegram, then:\n"
+            "    hackbot telegram --token <YOUR_TOKEN>\n"
+            "  Or set: TELEGRAM_BOT_TOKEN=<YOUR_TOKEN>"
+        )
+        return
+
+    # Fetch username and show pairing info
+    import asyncio
+
+    loop = asyncio.new_event_loop()
+    try:
+        username = loop.run_until_complete(bot._get_bot_username())
+    except Exception as e:
+        print_error(f"Invalid bot token: {e}")
+        return
+    finally:
+        loop.close()
+
+    pairing = bot.get_pairing_info()
+
+    console.print(f"\n  [bold bright_green]🤖 HackBot Telegram Bot[/]")
+    console.print(f"  [dim]Bot:[/] @{username}")
+    console.print(f"  [dim]Paired users:[/] {pairing['authorized_users']}")
+
+    if pairing.get("qr_ascii"):
+        console.print(f"\n  [bold]Scan this QR code with your Telegram app:[/]\n")
+        for line in pairing["qr_ascii"].split("\n"):
+            console.print(f"    {line}")
+        console.print(f"\n  [dim]Or open:[/] [cyan]{pairing['link']}[/]")
+        console.print(f"  [dim]Pairing code expires in {pairing['expires_in']}s[/]")
+    else:
+        console.print(f"\n  [dim]Open:[/] [cyan]{pairing['link']}[/]")
+
+    console.print(f"\n  [dim]Press Ctrl+C to stop[/]\n")
+
+    try:
+        bot.run_polling()
+    except KeyboardInterrupt:
+        console.print("\n  [dim]Telegram bot stopped. Goodbye! 🛡️[/]\n")
+    except Exception as e:
+        print_error(f"Bot error: {e}")
 
 
 @main.command()
