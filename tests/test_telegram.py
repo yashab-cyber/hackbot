@@ -95,13 +95,12 @@ class TestPairingState:
         ps.authorize(123)
         ps.authorize(456)
 
-        with patch("hackbot.integrations.telegram_bot.AUTH_FILE", auth_file):
+        with patch("hackbot.integrations.telegram_bot.auth.AUTH_FILE", auth_file):
             ps.save()
             assert auth_file.exists()
 
             ps2 = PairingState()
             ps2.load()
-            # load uses AUTH_FILE directly, need to patch
             data = json.loads(auth_file.read_text())
             assert 123 in data["authorized_users"]
             assert 456 in data["authorized_users"]
@@ -109,7 +108,7 @@ class TestPairingState:
     def test_load_missing_file(self):
         from hackbot.integrations.telegram_bot import PairingState
         ps = PairingState()
-        with patch("hackbot.integrations.telegram_bot.AUTH_FILE", Path("/nonexistent/auth.json")):
+        with patch("hackbot.integrations.telegram_bot.auth.AUTH_FILE", Path("/nonexistent/auth.json")):
             ps.load()  # Should not raise
         assert len(ps.authorized_users) == 0
 
@@ -193,13 +192,13 @@ class TestFormatHTML:
 class TestQRGeneration:
     def test_generate_qr_code_without_deps(self):
         from hackbot.integrations.telegram_bot import generate_qr_code
-        with patch("hackbot.integrations.telegram_bot._QR_AVAILABLE", False):
+        with patch("hackbot.integrations.telegram_bot.auth._QR_AVAILABLE", False):
             result = generate_qr_code("testbot", "abc123")
             assert result is None
 
     def test_generate_qr_terminal_without_deps(self):
         from hackbot.integrations.telegram_bot import generate_qr_terminal
-        with patch("hackbot.integrations.telegram_bot._QR_AVAILABLE", False):
+        with patch("hackbot.integrations.telegram_bot.auth._QR_AVAILABLE", False):
             result = generate_qr_terminal("testbot", "abc123")
             assert result == ""
 

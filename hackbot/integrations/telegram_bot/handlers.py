@@ -1,0 +1,631 @@
+"""
+Telegram Bot — Command Handlers
+=================================
+All Telegram /command handlers live here.
+Each handler is an ``async`` function that receives an ``Update`` + ``context``
+and interacts with the user's `TelegramUserSession`.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import io
+import logging
+import time
+from typing import TYPE_CHECKING
+
+from hackbot import __version__
+from hackbot.config import detect_platform, detect_tools, save_config
+from hackbot.core.engine import PROVIDERS, SUPPORTED_LANGUAGES
+from hackbot.core.cve import CVELookup
+from hackbot.core.compliance import ComplianceMapper
+from hackbot.core.osint import OSINTEngine
+from hackbot.modes.agent import AgentMode
+from hackbot.reporting import ReportGenerator
+
+from hackbot.integrations.telegram_bot.utils import format_html, split_message
+
+if TYPE_CHECKING:
+    from hackbot.integrations.telegram_bot.bot import HackBotTelegram
+
+logger = logging.getLogger(__name__)
+
+# These are only available when python-telegram-bot is installed.
+# The bot.py module gate-checks this at init time so handlers are
+# never actually called unless the lib is present.
+try:
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+    from telegram.constants import ChatAction, ParseMode
+    from telegram.ext import ContextTypes
+except ImportError:
+    pass
+
+
+# ── /start ───────────────────────────────────────────────────────────────────
+
+async def cmd_start(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /start — QR pairing gate & welcome dashboard."""
+    user_id = update.effective_user.id
+    args = context.args
+
+    # ── Pairing attempt via deep-link (/start <code>) ────────────────
+    if args and len(args) == 1:
+        code = args[0]
+        if bot.pairing.verify(code):
+            bot.pairing.authorize(user_id)
+            bot.pairing.save()
+            await update.message.reply_text(
+                f"✅ <b>Connected successfully!</b>\n\n"
+                f"Welcome to HackBot v{__version__}, "
+                f"{update.effective_user.first_name}!\n\n"
+                f"Your device is now linked. You have full control "
+                f"of your HackBot instance from Telegram.\n\n"
+                f"Type /help to see available commands.",
+                parse_mode=ParseMode.HTML,
+            )
+            logger.info("Telegram user %s authorized via QR pairing", user_id)
+            return
+        else:
+            await update.message.reply_text(
+                "❌ <b>Invalid or expired pairing code.</b>\n\n"
+                "Please generate a fresh QR code from your HackBot terminal:\n"
+                "<code>hackbot telegram</code>\n\n"
+                "Then scan the new QR code.",
+                parse_mode=ParseMode.HTML,
+            )
+            return
+
+    # ── Already paired — show dashboard ──────────────────────────────
+    if bot.pairing.is_authorized(user_id):
+        keyboard = [
+            [
+                InlineKeyboardButton("💬 Chat", callback_data="mode_chat"),
+                InlineKeyboardButton("🤖 Agent", callback_data="mode_agent"),
+                InlineKeyboardButton("📋 Plan", callback_data="mode_plan"),
+            ],
+            [
+                InlineKeyboardButton("⚙️ Settings", callback_data="settings"),
+                InlineKeyboardButton("ℹ️ Help", callback_data="help"),
+            ],
+        ]
+        session = bot._get_session(user_id)
+        await update.message.reply_text(
+            f"🤖 <b>HackBot v{__version__}</b>\n\n"
+            f"Current mode: <b>{session.mode.upper()}</b>\n"
+            f"Provider: <b>{bot.config.ai.provider}/{bot.config.ai.model}</b>\n"
+            f"Language: <b>{bot.config.ui.language}</b>\n\n"
+            f"Send any message to chat, or use the buttons below.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
+        return
+
+    # ── Not paired — show connection instructions ────────────────────
+    await update.message.reply_text(
+        "🤖 <b>HackBot — AI Cybersecurity Assistant</b>\n\n"
+        "To connect this bot to your HackBot instance:\n\n"
+        "1️⃣  Run on your machine:\n"
+        "    <code>hackbot telegram</code>\n\n"
+        "2️⃣  A QR code will appear in your terminal\n\n"
+        "3️⃣  Scan that QR code with your phone camera\n"
+        "    (it will open this chat automatically)\n\n"
+        "4️⃣  You're connected! Full HackBot control from here.\n\n"
+        "<i>Don't have HackBot yet?</i>\n"
+        "<code>pip install hackbot</code>",
+        parse_mode=ParseMode.HTML,
+    )
+
+
+# ── /help ────────────────────────────────────────────────────────────────────
+
+async def cmd_help(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    help_text = (
+        "🤖 <b>HackBot — Telegram Commands</b>\n\n"
+        "<b>Modes:</b>\n"
+        "/chat — Switch to Chat mode\n"
+        "/agent &lt;target&gt; — Start Agent mode\n"
+        "/plan &lt;target&gt; — Generate pentest plan\n\n"
+        "<b>Agent:</b>\n"
+        "/step — Execute next agent step\n"
+        "/findings — Show current findings\n"
+        "/stop — Stop current assessment\n\n"
+        "<b>Intelligence:</b>\n"
+        "/cve &lt;query&gt; — CVE / exploit lookup\n"
+        "/osint &lt;domain&gt; — OSINT scan\n"
+        "/compliance — Map findings to frameworks\n\n"
+        "<b>Settings:</b>\n"
+        "/model &lt;name&gt; — Switch AI model\n"
+        "/provider &lt;name&gt; — Switch AI provider\n"
+        "/language &lt;lang&gt; — Set response language\n"
+        "/config — Show current config\n\n"
+        "<b>Session:</b>\n"
+        "/reset — Reset conversation\n"
+        "/export — Export report\n"
+        "/version — Show version\n"
+        "/status — Show connection status\n\n"
+        "<i>Or just type any message to chat!</i>"
+    )
+    await update.message.reply_text(help_text, parse_mode=ParseMode.HTML)
+
+
+# ── Mode switching ───────────────────────────────────────────────────────────
+
+async def cmd_chat(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    session = bot._get_session(update.effective_user.id)
+    session.mode = "chat"
+    await update.message.reply_text("💬 Switched to <b>Chat Mode</b>", parse_mode=ParseMode.HTML)
+
+
+# ── Agent ────────────────────────────────────────────────────────────────────
+
+async def cmd_agent(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    session = bot._get_session(update.effective_user.id)
+    target = " ".join(context.args) if context.args else ""
+
+    if not target:
+        await update.message.reply_text(
+            "Usage: /agent &lt;target&gt;\n"
+            "Example: <code>/agent 192.168.1.1</code>\n"
+            "Example: <code>/agent example.com</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    if not bot.engine.is_configured():
+        await update.message.reply_text("❌ API key not configured. Use /config to check.")
+        return
+
+    session.mode = "agent"
+    session.agent_mode = AgentMode(engine=bot.engine, config=bot.config)
+
+    await update.message.reply_text(
+        f"🤖 <b>Agent Mode — Starting assessment</b>\n"
+        f"Target: <code>{target}</code>\n\n"
+        f"⏳ Planning assessment...",
+        parse_mode=ParseMode.HTML,
+    )
+
+    loop = asyncio.get_event_loop()
+    try:
+        response = await loop.run_in_executor(None, lambda: session.agent_mode.start(target))
+        for chunk in split_message(response):
+            await update.message.reply_text(format_html(chunk), parse_mode=ParseMode.HTML)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Agent error: {e}")
+
+
+async def cmd_step(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    session = bot._get_session(update.effective_user.id)
+    if session.mode != "agent" or not session.agent_mode or not session.agent_mode.is_running:
+        await update.message.reply_text(
+            "No active assessment. Start one with:\n<code>/agent &lt;target&gt;</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    user_input = " ".join(context.args) if context.args else ""
+    await update.message.chat.send_action(ChatAction.TYPING)
+    loop = asyncio.get_event_loop()
+    try:
+        response, is_complete = await loop.run_in_executor(None, lambda: session.agent_mode.step(user_input))
+        for chunk in split_message(response):
+            await update.message.reply_text(format_html(chunk), parse_mode=ParseMode.HTML)
+        if is_complete:
+            await update.message.reply_text(
+                "✅ <b>Assessment complete!</b>\nUse /findings to view results, /export for report.",
+                parse_mode=ParseMode.HTML,
+            )
+    except Exception as e:
+        await update.message.reply_text(f"❌ Step error: {e}")
+
+
+async def cmd_findings(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    session = bot._get_session(update.effective_user.id)
+    if not session.agent_mode or not session.agent_mode.findings:
+        await update.message.reply_text("No findings yet.")
+        return
+
+    severity_icons = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Low": "🔵", "Info": "⚪"}
+    lines = [f"🔍 <b>Findings ({len(session.agent_mode.findings)})</b>\n"]
+    for i, f in enumerate(session.agent_mode.findings, 1):
+        icon = severity_icons.get(f.severity.value, "•")
+        lines.append(f"{icon} <b>#{i} {f.title}</b> [{f.severity.value}]")
+        if f.description:
+            desc = f.description[:150] + "..." if len(f.description) > 150 else f.description
+            lines.append(f"   {desc}")
+        lines.append("")
+
+    text = "\n".join(lines)
+    for chunk in split_message(text):
+        await update.message.reply_text(chunk, parse_mode=ParseMode.HTML)
+
+
+async def cmd_stop(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    session = bot._get_session(update.effective_user.id)
+    if session.agent_mode and session.agent_mode.is_running:
+        session.agent_mode.is_running = False
+        count = len(session.agent_mode.findings)
+        await update.message.reply_text(
+            f"🛑 Assessment stopped. {count} findings collected.\n"
+            f"Use /findings to view, /export for report.",
+        )
+    else:
+        await update.message.reply_text("No active assessment to stop.")
+
+
+# ── Plan ─────────────────────────────────────────────────────────────────────
+
+async def cmd_plan(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    session = bot._get_session(update.effective_user.id)
+    target = " ".join(context.args) if context.args else ""
+
+    if not target:
+        await update.message.reply_text(
+            "Usage: /plan &lt;target&gt;\n"
+            "Example: <code>/plan example.com web_pentest</code>\n\n"
+            "Templates: web_pentest, network_pentest, api_pentest, "
+            "cloud_audit, ad_pentest, wireless, mobile, bug_bounty",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    if not bot.engine.is_configured():
+        await update.message.reply_text("❌ API key not configured.")
+        return
+
+    session.mode = "plan"
+    parts = target.split()
+    plan_target = parts[0]
+    plan_type = parts[1] if len(parts) > 1 else "web_pentest"
+
+    await update.message.chat.send_action(ChatAction.TYPING)
+    loop = asyncio.get_event_loop()
+    try:
+        response = await loop.run_in_executor(
+            None, lambda: session.plan_mode.create_plan(plan_target, plan_type)
+        )
+        for chunk in split_message(response):
+            await update.message.reply_text(format_html(chunk), parse_mode=ParseMode.HTML)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Plan error: {e}")
+
+
+# ── Intelligence ─────────────────────────────────────────────────────────────
+
+async def cmd_cve(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = " ".join(context.args) if context.args else ""
+    if not query:
+        await update.message.reply_text(
+            "Usage:\n"
+            "<code>/cve CVE-2021-44228</code> — Lookup by ID\n"
+            "<code>/cve Apache 2.4.49</code> — Search by keyword",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    await update.message.chat.send_action(ChatAction.TYPING)
+    cve_engine = CVELookup()
+    loop = asyncio.get_event_loop()
+
+    try:
+        if query.strip().upper().startswith("CVE-"):
+            entry = await loop.run_in_executor(None, lambda: cve_engine.lookup_cve(query.strip()))
+            if entry:
+                report = CVELookup.format_cve_report([entry], title=f"CVE: {entry.cve_id}")
+                for chunk in split_message(report):
+                    await update.message.reply_text(format_html(chunk), parse_mode=ParseMode.HTML)
+            else:
+                await update.message.reply_text(f"CVE not found: {query.strip()}")
+        else:
+            cves = await loop.run_in_executor(None, lambda: cve_engine.search_cve(query, max_results=10))
+            report = CVELookup.format_cve_report(cves, title=f"CVE Search: {query}")
+            for chunk in split_message(report):
+                await update.message.reply_text(format_html(chunk), parse_mode=ParseMode.HTML)
+    except Exception as e:
+        await update.message.reply_text(f"❌ CVE lookup error: {e}")
+
+
+async def cmd_osint(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    domain = " ".join(context.args) if context.args else ""
+    if not domain:
+        await update.message.reply_text("Usage: <code>/osint example.com</code>", parse_mode=ParseMode.HTML)
+        return
+
+    await update.message.chat.send_action(ChatAction.TYPING)
+    osint = OSINTEngine()
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(None, lambda: osint.full_scan(domain))
+        report = osint.format_report(result)
+        for chunk in split_message(report):
+            await update.message.reply_text(format_html(chunk), parse_mode=ParseMode.HTML)
+    except Exception as e:
+        await update.message.reply_text(f"❌ OSINT error: {e}")
+
+
+async def cmd_compliance(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    session = bot._get_session(update.effective_user.id)
+    if not session.agent_mode or not session.agent_mode.findings:
+        await update.message.reply_text("No findings to map. Run an agent assessment first.")
+        return
+
+    findings = [f.to_dict() for f in session.agent_mode.findings]
+    mapper = ComplianceMapper()
+    loop = asyncio.get_event_loop()
+    try:
+        mappings = await loop.run_in_executor(None, lambda: mapper.map_findings(findings))
+        report = mapper.format_report(mappings)
+        for chunk in split_message(report):
+            await update.message.reply_text(format_html(chunk), parse_mode=ParseMode.HTML)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Compliance error: {e}")
+
+
+# ── Settings ─────────────────────────────────────────────────────────────────
+
+async def cmd_model(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    model = " ".join(context.args) if context.args else ""
+    if not model:
+        preset = PROVIDERS.get(bot.config.ai.provider, {})
+        models = preset.get("models", [])
+        if models:
+            lines = [f"<b>Models for {bot.config.ai.provider}:</b>\n"]
+            for m in models:
+                current = " ◀" if m["id"] == bot.config.ai.model else ""
+                lines.append(f"<code>{m['id']}</code> — {m['name']}{current}")
+            await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+        else:
+            await update.message.reply_text("No model list available for current provider.")
+        return
+
+    from hackbot.core.engine import AIEngine
+    bot.config.ai.model = model
+    bot.engine = AIEngine(bot.config.ai)
+    bot._refresh_all_sessions()
+    save_config(bot.config)
+    await update.message.reply_text(f"✅ Model set to: <code>{model}</code>", parse_mode=ParseMode.HTML)
+
+
+async def cmd_provider(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    provider = " ".join(context.args).lower() if context.args else ""
+    if not provider:
+        lines = ["<b>Available providers:</b>\n"]
+        for key, p in PROVIDERS.items():
+            current = " ◀" if key == bot.config.ai.provider else ""
+            lines.append(f"<code>{key}</code> — {p['name']}{current}")
+        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+        return
+
+    if provider not in PROVIDERS:
+        await update.message.reply_text(f"❌ Unknown provider: {provider}")
+        return
+
+    from hackbot.core.engine import AIEngine
+    bot.config.ai.provider = provider
+    preset = PROVIDERS[provider]
+    if preset["models"]:
+        bot.config.ai.model = preset["models"][0]["id"]
+    bot.engine = AIEngine(bot.config.ai)
+    bot._refresh_all_sessions()
+    save_config(bot.config)
+    await update.message.reply_text(
+        f"✅ Provider: <code>{preset['name']}</code>\n"
+        f"Model: <code>{bot.config.ai.model}</code>",
+        parse_mode=ParseMode.HTML,
+    )
+
+
+async def cmd_language(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = " ".join(context.args) if context.args else ""
+    if not lang:
+        current = bot.config.ui.language
+        lines = [f"Current: <b>{current}</b>\n\n<b>Available:</b>\n"]
+        for name, native in sorted(SUPPORTED_LANGUAGES.items()):
+            marker = " ◀" if name == current else ""
+            lines.append(f"<code>{name}</code> ({native}){marker}")
+        text = "\n".join(lines)
+        for chunk in split_message(text):
+            await update.message.reply_text(chunk, parse_mode=ParseMode.HTML)
+        return
+
+    matched = None
+    for name in SUPPORTED_LANGUAGES:
+        if name.lower() == lang.lower():
+            matched = name
+            break
+    if not matched:
+        for name in SUPPORTED_LANGUAGES:
+            if name.lower().startswith(lang.lower()):
+                matched = name
+                break
+    if not matched:
+        await update.message.reply_text(f"❌ Unknown language: {lang}\nUse /language to see all options.")
+        return
+
+    bot.config.ui.language = matched
+    save_config(bot.config)
+    bot._refresh_all_sessions()
+    native = SUPPORTED_LANGUAGES[matched]
+    await update.message.reply_text(
+        f"✅ Language set to: <b>{matched}</b> ({native})", parse_mode=ParseMode.HTML
+    )
+
+
+async def cmd_config(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    preset = PROVIDERS.get(bot.config.ai.provider, {})
+    provider_name = preset.get("name", bot.config.ai.provider)
+    text = (
+        f"⚙️ <b>HackBot Configuration</b>\n\n"
+        f"<b>Provider:</b> {provider_name}\n"
+        f"<b>Model:</b> <code>{bot.config.ai.model}</code>\n"
+        f"<b>API Key:</b> {'✅ Set' if bot.config.ai.api_key else '❌ Not set'}\n"
+        f"<b>Language:</b> {bot.config.ui.language}\n"
+        f"<b>Safe Mode:</b> {'✅' if bot.config.agent.safe_mode else '❌'}\n"
+        f"<b>Max Steps:</b> {bot.config.agent.max_steps}\n"
+        f"<b>Temperature:</b> {bot.config.ai.temperature}\n"
+    )
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
+
+# ── Session management ───────────────────────────────────────────────────────
+
+async def cmd_reset(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    bot._reset_session(update.effective_user.id)
+    await update.message.reply_text("🔄 Session reset. Fresh start!")
+
+
+async def cmd_export(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    session = bot._get_session(update.effective_user.id)
+    if not session.agent_mode or not session.agent_mode.findings:
+        await update.message.reply_text("No findings to export.")
+        return
+
+    findings = [f.to_dict() for f in session.agent_mode.findings]
+    tools_used = [s.tool_result.to_dict() for s in session.agent_mode.steps
+                  if s.tool_result] if session.agent_mode.steps else []
+
+    reporter = ReportGenerator(report_format="markdown")
+    report = reporter.generate(
+        target=session.agent_mode.target,
+        findings=findings,
+        tools_used=tools_used,
+    )
+
+    buf = io.BytesIO(report.encode("utf-8"))
+    buf.name = f"hackbot_report_{int(time.time())}.md"
+    await update.message.reply_document(
+        document=buf, caption=f"📊 HackBot Report — {session.agent_mode.target}"
+    )
+
+
+async def cmd_version(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    plat = detect_platform()
+    await update.message.reply_text(
+        f"🤖 <b>HackBot</b> v{__version__}\n"
+        f"Developer: Yashab Alam\n"
+        f"Platform: {plat['system']} {plat['machine']}\n"
+        f"Python: {plat['python']}",
+        parse_mode=ParseMode.HTML,
+    )
+
+
+async def cmd_status(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    session = bot._get_session(update.effective_user.id)
+    tools = detect_tools(bot.config.agent.allowed_tools)
+    installed = sum(1 for v in tools.values() if v)
+    total = len(tools)
+
+    await update.message.reply_text(
+        f"📡 <b>HackBot Status</b>\n\n"
+        f"🟢 Bot: Connected\n"
+        f"Mode: <b>{session.mode.upper()}</b>\n"
+        f"Provider: {bot.config.ai.provider}/{bot.config.ai.model}\n"
+        f"API Key: {'✅' if bot.engine.is_configured() else '❌'}\n"
+        f"Language: {bot.config.ui.language}\n"
+        f"Tools: {installed}/{total} installed\n"
+        f"Agent: {'🟢 Running' if session.agent_mode and session.agent_mode.is_running else '⚪ Idle'}\n"
+        f"Findings: {len(session.agent_mode.findings) if session.agent_mode else 0}",
+        parse_mode=ParseMode.HTML,
+    )
+
+
+# ── Inline keyboard callback ────────────────────────────────────────────────
+
+async def callback_handler(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    user_id = update.effective_user.id
+    if not bot.pairing.is_authorized(user_id):
+        await query.edit_message_text("🔒 Not authorized.")
+        return
+
+    data = query.data
+    session = bot._get_session(user_id)
+
+    if data == "mode_chat":
+        session.mode = "chat"
+        await query.edit_message_text("💬 Switched to <b>Chat Mode</b>", parse_mode=ParseMode.HTML)
+    elif data == "mode_agent":
+        session.mode = "agent"
+        await query.edit_message_text(
+            "🤖 <b>Agent Mode</b>\nSend /agent &lt;target&gt; to start an assessment.",
+            parse_mode=ParseMode.HTML,
+        )
+    elif data == "mode_plan":
+        session.mode = "plan"
+        await query.edit_message_text(
+            "📋 <b>Plan Mode</b>\nSend /plan &lt;target&gt; to generate a plan.",
+            parse_mode=ParseMode.HTML,
+        )
+    elif data == "settings":
+        await query.edit_message_text(
+            f"⚙️ <b>Settings</b>\n\n"
+            f"Provider: {bot.config.ai.provider}\n"
+            f"Model: {bot.config.ai.model}\n"
+            f"Language: {bot.config.ui.language}\n\n"
+            f"Use /model, /provider, /language to change.",
+            parse_mode=ParseMode.HTML,
+        )
+    elif data == "help":
+        await query.edit_message_text("Type /help to see all available commands.")
+
+
+# ── Free-text message handler ────────────────────────────────────────────────
+
+async def message_handler(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Route plain text to the active mode (chat / agent / plan)."""
+    user_id = update.effective_user.id
+    if not bot.pairing.is_authorized(user_id):
+        await update.message.reply_text(
+            "🔒 Not authorized. Run <code>hackbot telegram</code> on your "
+            "machine and scan the QR code.",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    session = bot._get_session(user_id)
+    text = update.message.text.strip()
+    if not text:
+        return
+
+    if not bot.engine.is_configured():
+        await update.message.reply_text(
+            "❌ API key not configured.\n"
+            "Set HACKBOT_API_KEY on your machine or use /config."
+        )
+        return
+
+    await update.message.chat.send_action(ChatAction.TYPING)
+    loop = asyncio.get_event_loop()
+
+    try:
+        if session.mode == "chat":
+            response = await loop.run_in_executor(
+                None, lambda: session.chat_mode.ask(text, stream=False)
+            )
+        elif session.mode == "agent":
+            if session.agent_mode and session.agent_mode.is_running:
+                response, is_complete = await loop.run_in_executor(
+                    None, lambda: session.agent_mode.step(text)
+                )
+                if is_complete:
+                    response += "\n\n✅ Assessment complete!"
+            else:
+                response = await loop.run_in_executor(
+                    None, lambda: session.chat_mode.ask(text, stream=False)
+                )
+        elif session.mode == "plan":
+            response = await loop.run_in_executor(
+                None, lambda: session.plan_mode.ask(text, stream=False)
+            )
+        else:
+            response = await loop.run_in_executor(
+                None, lambda: session.chat_mode.ask(text, stream=False)
+            )
+
+        for chunk in split_message(response):
+            await update.message.reply_text(format_html(chunk), parse_mode=ParseMode.HTML)
+    except Exception as e:
+        logger.error("Message handler error: %s", e)
+        await update.message.reply_text(f"❌ Error: {e}")
