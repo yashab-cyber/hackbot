@@ -20,6 +20,8 @@ Search CVE vulnerabilities and find exploit proof-of-concepts.
 - **Keyword Search**: Search NVD by keyword with optional severity filter (up to 15 results)
 - **Nmap-to-CVE Mapping**: Parses nmap service output, maps each service to known CVEs (5 per service)
 - **Exploit Search**: Find PoC exploits via GitHub
+- **Agent Auto-Enrichment**: Agent automatically maps nmap results to CVEs after every scan
+- **NVD API Key**: Configure with `/nvd-key` for 10× faster rate limits (see [NVD API Integration](13-nvd-api-integration.md))
 
 ### GUI
 Use the **CVE Lookup** panel with 4 tabs: CVE Lookup, Keyword Search, Exploit Search, Nmap to CVE.

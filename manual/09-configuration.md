@@ -50,6 +50,8 @@ Created automatically on first run with sensible defaults.
 | `max_steps` | int | `50` | Maximum steps per assessment |
 | `timeout` | int | `300` | Tool execution timeout in seconds |
 | `safe_mode` | bool | `true` | Prevent destructive/aggressive operations |
+| `sudo_password` | string | `""` | `SUDO_PASSWORD` | Password for non-interactive sudo (avoids TTY hangs) |
+| `nvd_api_key` | string | `""` | `NVD_API_KEY` | NVD API key for faster CVE lookups (50 req/30s vs 5) |
 | `allowed_tools` | list | 26 tools | Whitelist of tools the agent can use |
 
 ### Allowed Tools (Default 26)
