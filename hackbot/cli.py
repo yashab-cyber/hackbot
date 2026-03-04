@@ -2310,10 +2310,11 @@ def get_prompt(mode: str) -> str:
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
 @click.option("--safe-mode/--no-safe-mode", default=None, help="Enable/disable safe mode")
 @click.option("--sudo", "sudo_mode", is_flag=True, default=False, help="Run all commands with sudo")
+@click.option("--sudo-password", default=None, help="Password for sudo (avoids TTY prompt)")
 @click.option("--gui", "-g", is_flag=True, help="Launch the desktop GUI")
 @click.version_option(__version__, prog_name="hackbot")
 @click.pass_context
-def main(ctx, model, provider, api_key, base_url, no_banner, verbose, safe_mode, sudo_mode, gui):
+def main(ctx, model, provider, api_key, base_url, no_banner, verbose, safe_mode, sudo_mode, sudo_password, gui):
     """HackBot — AI Cybersecurity Assistant"""
     ctx.ensure_object(dict)
 
@@ -2334,6 +2335,9 @@ def main(ctx, model, provider, api_key, base_url, no_banner, verbose, safe_mode,
         config.agent.safe_mode = safe_mode
     if sudo_mode:
         config.agent.sudo_mode = True
+    if sudo_password:
+        config.agent.sudo_password = sudo_password
+        config.agent.sudo_mode = True  # implicitly enable sudo_mode
 
     ctx.obj["config"] = config
 

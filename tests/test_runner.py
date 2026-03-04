@@ -124,7 +124,7 @@ def test_sudo_mode_disabled():
 
 
 def test_sudo_mode_enabled():
-    """Test that sudo_mode=True prepends sudo to commands."""
+    """Test that sudo_mode=True prepends sudo -n (non-interactive) to commands."""
     r = ToolRunner(
         allowed_tools=["echo"],
         timeout=10,
@@ -132,9 +132,50 @@ def test_sudo_mode_enabled():
         sudo_mode=True,
     )
     if platform.system() != "Windows":
-        assert r._apply_sudo("echo hello") == "sudo echo hello"
+        # Without password: uses sudo -n (non-interactive, fails if password needed)
+        assert r._apply_sudo("echo hello") == "sudo -n echo hello"
         # Should not double-prefix
         assert r._apply_sudo("sudo echo hello") == "sudo echo hello"
+
+    # With password: uses sudo -S (reads password from stdin)
+    r2 = ToolRunner(
+        allowed_tools=["echo"],
+        timeout=10,
+        safe_mode=False,
+        sudo_mode=True,
+        sudo_password="secret",
+    )
+    if platform.system() != "Windows":
+        assert r2._apply_sudo("echo hello") == "sudo -S echo hello"
+        assert r2._apply_sudo("sudo echo hello") == "sudo echo hello"
+        assert r2._feed_sudo_password() == "secret\n"
+
+    # Password not fed when sudo_mode off
+    r3 = ToolRunner(
+        allowed_tools=["echo"],
+        timeout=10,
+        safe_mode=False,
+        sudo_mode=False,
+        sudo_password="secret",
+    )
+    assert r3._apply_sudo("echo hello") == "echo hello"
+
+
+def test_check_sudo_not_needed():
+    """check_sudo returns OK when sudo_mode is off."""
+    r = ToolRunner(allowed_tools=["echo"], timeout=10, safe_mode=False, sudo_mode=False)
+    ok, msg = r.check_sudo()
+    assert ok
+    assert "not required" in msg
+
+
+def test_check_sudo_caches_result():
+    """check_sudo only validates once per runner lifetime."""
+    r = ToolRunner(allowed_tools=["echo"], timeout=10, safe_mode=False, sudo_mode=True)
+    r._sudo_validated = True  # Simulate prior success
+    ok, msg = r.check_sudo()
+    assert ok
+    assert "already validated" in msg
 
 
 def test_validate_command_with_sudo_prefix(runner):

@@ -118,6 +118,7 @@ class AgentMode:
             safe_mode=config.agent.safe_mode,
             auto_confirm=config.agent.auto_confirm,
             sudo_mode=config.agent.sudo_mode,
+            sudo_password=config.agent.sudo_password,
             on_confirm=on_confirm,
             on_output=on_output,
         )
@@ -160,6 +161,13 @@ class AgentMode:
         self.findings = []
         self._step_count = 0
         self.is_running = True
+
+        # Validate sudo access upfront if sudo_mode is on
+        if self.config.agent.sudo_mode:
+            ok, msg = self.runner.check_sudo()
+            if not ok:
+                logger.warning("Sudo validation failed: %s", msg)
+                return f"⚠️ Sudo mode is enabled but sudo access failed: {msg}\n\nDisable sudo_mode or configure sudo_password in settings, then retry."
 
         # Create assessment in vulnerability database
         try:

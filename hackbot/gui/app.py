@@ -179,6 +179,10 @@ def api_config():
             config.agent.auto_confirm = data["auto_confirm"]
         if "sudo_mode" in data:
             config.agent.sudo_mode = data["sudo_mode"]
+        if "sudo_password" in data:
+            config.agent.sudo_password = data["sudo_password"]
+            if data["sudo_password"]:
+                config.agent.sudo_mode = True
         if "report_format" in data:
             config.reporting.format = data["report_format"]
         if "language" in data:
@@ -210,6 +214,7 @@ def api_config():
         "safe_mode": config.agent.safe_mode,
         "auto_confirm": config.agent.auto_confirm,
         "sudo_mode": config.agent.sudo_mode,
+        "has_sudo_password": bool(config.agent.sudo_password),
         "max_steps": config.agent.max_steps,
         "timeout": config.agent.timeout,
         "report_format": config.reporting.format,

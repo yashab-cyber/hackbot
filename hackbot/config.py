@@ -51,6 +51,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "timeout": 300,
         "safe_mode": True,
         "sudo_mode": False,
+        "sudo_password": "",
         "allowed_tools": [
             "nmap",
             "nikto",
@@ -115,6 +116,7 @@ class AgentConfig:
     timeout: int = 300
     safe_mode: bool = True
     sudo_mode: bool = False
+    sudo_password: str = ""
     allowed_tools: List[str] = field(default_factory=lambda: DEFAULT_CONFIG["agent"]["allowed_tools"])
 
 
@@ -248,6 +250,7 @@ def save_config(cfg: HackBotConfig) -> None:
             "timeout": cfg.agent.timeout,
             "safe_mode": cfg.agent.safe_mode,
             "sudo_mode": cfg.agent.sudo_mode,
+            "sudo_password": cfg.agent.sudo_password,
             "allowed_tools": cfg.agent.allowed_tools,
         },
         "reporting": {

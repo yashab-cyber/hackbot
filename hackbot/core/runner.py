@@ -129,6 +129,7 @@ class ToolRunner:
         safe_mode: bool = True,
         auto_confirm: bool = False,
         sudo_mode: bool = False,
+        sudo_password: str = "",
         on_confirm: Optional[Callable[[str, str], bool]] = None,
         on_output: Optional[Callable[[str], None]] = None,
     ):
@@ -137,9 +138,11 @@ class ToolRunner:
         self.safe_mode = safe_mode
         self.auto_confirm = auto_confirm
         self.sudo_mode = sudo_mode
+        self.sudo_password = sudo_password
         self.on_confirm = on_confirm
         self.on_output = on_output
         self.history: List[ToolResult] = []
+        self._sudo_validated = False
 
     def is_tool_available(self, tool: str) -> bool:
         """Check if a tool is installed on the system."""
@@ -187,11 +190,76 @@ class ToolRunner:
         return True, "OK"
 
     def _apply_sudo(self, command: str) -> str:
-        """Prepend sudo to command if sudo_mode is enabled and not already present."""
+        """Prepend sudo to command if sudo_mode is enabled and not already present.
+
+        Uses ``sudo -S`` (stdin password) when a password is configured, or
+        ``sudo -n`` (non-interactive / passwordless) otherwise so the
+        subprocess never hangs waiting for a TTY password prompt.
+        """
         stripped = command.strip()
-        if self.sudo_mode and not stripped.startswith("sudo ") and platform.system() != "Windows":
-            return f"sudo {stripped}"
-        return command
+        if not self.sudo_mode or stripped.startswith("sudo ") or platform.system() == "Windows":
+            return command
+
+        if self.sudo_password:
+            # -S reads password from stdin; runner feeds it via proc.communicate()
+            return f"sudo -S {stripped}"
+        else:
+            # -n = non-interactive; fails instantly if a password is required
+            return f"sudo -n {stripped}"
+
+    def _feed_sudo_password(self) -> Optional[str]:
+        """Return the password string to feed to ``sudo -S`` via stdin, or None."""
+        if self.sudo_mode and self.sudo_password:
+            return self.sudo_password + "\n"
+        return None
+
+    def check_sudo(self) -> tuple[bool, str]:
+        """Validate that sudo access works before running any commands.
+
+        Returns (ok, message).  Sets ``_sudo_validated`` on success so the
+        check is only performed once per runner lifetime.
+        """
+        if not self.sudo_mode or platform.system() == "Windows":
+            return True, "sudo not required"
+
+        if self._sudo_validated:
+            return True, "sudo already validated"
+
+        try:
+            if self.sudo_password:
+                proc = subprocess.Popen(
+                    ["sudo", "-S", "-v"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                _, stderr = proc.communicate(input=self.sudo_password + "\n", timeout=10)
+            else:
+                proc = subprocess.Popen(
+                    ["sudo", "-n", "true"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                _, stderr = proc.communicate(timeout=10)
+
+            if proc.returncode == 0:
+                self._sudo_validated = True
+                return True, "sudo access validated"
+            else:
+                hint = (
+                    "Set sudo_password in config or run 'sudo -v' before starting HackBot"
+                    if not self.sudo_password
+                    else "Incorrect sudo password"
+                )
+                return False, f"sudo authentication failed — {hint}"
+        except subprocess.TimeoutExpired:
+            return False, "sudo validation timed out"
+        except FileNotFoundError:
+            return False, "sudo command not found"
+        except Exception as e:
+            return False, f"sudo check error: {e}"
 
     def execute(self, command: str, tool_name: str = "", explanation: str = "") -> ToolResult:
         """
@@ -235,6 +303,7 @@ class ToolRunner:
 
         # Execute
         start = time.time()
+        stdin_data = self._feed_sudo_password() if "sudo -S" in command else None
 
         try:
             is_windows = platform.system() == "Windows"
@@ -242,13 +311,14 @@ class ToolRunner:
                 command if is_windows else shlex.split(command),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE if stdin_data else None,
                 shell=is_windows,
                 text=True,
                 env=self._get_env(),
             )
 
             try:
-                stdout, stderr = proc.communicate(timeout=self.timeout)
+                stdout, stderr = proc.communicate(input=stdin_data, timeout=self.timeout)
             except subprocess.TimeoutExpired:
                 self._kill_process(proc)
                 stdout, stderr = proc.communicate()
@@ -323,17 +393,20 @@ class ToolRunner:
             )
 
         start = time.time()
+        stdin_data = self._feed_sudo_password() if "sudo -S" in command else None
         try:
             proc = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                stdin=asyncio.subprocess.PIPE if stdin_data else None,
                 env=self._get_env(),
             )
 
             try:
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                    proc.communicate(), timeout=self.timeout
+                    proc.communicate(input=stdin_data.encode() if stdin_data else None),
+                    timeout=self.timeout,
                 )
                 stdout = stdout_bytes.decode("utf-8", errors="replace")
                 stderr = stderr_bytes.decode("utf-8", errors="replace")
