@@ -187,6 +187,7 @@ class HackBotApp:
             "/telegram": lambda: self._handle_telegram(args),
             "/vulndb": lambda: self._handle_vulndb(args),
             "/attack": lambda: self._handle_attack(args),
+            "/nvd-key": lambda: self._set_nvd_key(args),
         }
 
         handler = commands.get(cmd)
@@ -483,6 +484,34 @@ class HackBotApp:
             print_error(result["message"])
             print_warning("API key saved but may not work. Use /key to set a valid key.")
             save_config(self.config)
+        return True
+
+    def _set_nvd_key(self, key: str) -> bool:
+        """Set or show the NVD API key for CVE lookups."""
+        if not key:
+            has_key = bool(self.config.agent.nvd_api_key)
+            if has_key:
+                masked = self.config.agent.nvd_api_key[:4] + "****" + self.config.agent.nvd_api_key[-4:]
+                print_info(f"NVD API key is set: {masked}")
+                print_info("Rate limit: 50 requests / 30 seconds")
+            else:
+                print_warning("No NVD API key configured.")
+                print_info("Rate limit: 5 requests / 30 seconds (much slower)")
+            console.print(
+                "\n[dim]Usage: /nvd-key <key>[/]\n"
+                "[dim]Get a free key at: https://nvd.nist.gov/developers/request-an-api-key[/]"
+            )
+            return True
+
+        self.config.agent.nvd_api_key = key.strip()
+        save_config(self.config)
+
+        # Update existing CVE engine references
+        if self.agent:
+            from hackbot.core.cve import CVELookup
+            self.agent.cve_engine = CVELookup(nvd_api_key=key.strip())
+
+        print_success("NVD API key saved. CVE lookups will use the faster rate limit (50 req/30s).")
         return True
 
     def _set_language(self, lang: str) -> bool:
@@ -1386,7 +1415,7 @@ class HackBotApp:
             )
             return True
 
-        cve_engine = CVELookup()
+        cve_engine = CVELookup(nvd_api_key=self.config.agent.nvd_api_key)
 
         if args.strip().upper().startswith("CVE-"):
             # Direct CVE lookup
@@ -2311,10 +2340,11 @@ def get_prompt(mode: str) -> str:
 @click.option("--safe-mode/--no-safe-mode", default=None, help="Enable/disable safe mode")
 @click.option("--sudo", "sudo_mode", is_flag=True, default=False, help="Run all commands with sudo")
 @click.option("--sudo-password", default=None, help="Password for sudo (avoids TTY prompt)")
+@click.option("--nvd-key", default=None, help="NVD API key for faster CVE lookups")
 @click.option("--gui", "-g", is_flag=True, help="Launch the desktop GUI")
 @click.version_option(__version__, prog_name="hackbot")
 @click.pass_context
-def main(ctx, model, provider, api_key, base_url, no_banner, verbose, safe_mode, sudo_mode, sudo_password, gui):
+def main(ctx, model, provider, api_key, base_url, no_banner, verbose, safe_mode, sudo_mode, sudo_password, nvd_key, gui):
     """HackBot — AI Cybersecurity Assistant"""
     ctx.ensure_object(dict)
 
@@ -2338,6 +2368,8 @@ def main(ctx, model, provider, api_key, base_url, no_banner, verbose, safe_mode,
     if sudo_password:
         config.agent.sudo_password = sudo_password
         config.agent.sudo_mode = True  # implicitly enable sudo_mode
+    if nvd_key:
+        config.agent.nvd_api_key = nvd_key
 
     ctx.obj["config"] = config
 

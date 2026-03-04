@@ -183,6 +183,8 @@ def api_config():
             config.agent.sudo_password = data["sudo_password"]
             if data["sudo_password"]:
                 config.agent.sudo_mode = True
+        if "nvd_api_key" in data:
+            config.agent.nvd_api_key = data["nvd_api_key"]
         if "report_format" in data:
             config.reporting.format = data["report_format"]
         if "language" in data:
@@ -215,6 +217,7 @@ def api_config():
         "auto_confirm": config.agent.auto_confirm,
         "sudo_mode": config.agent.sudo_mode,
         "has_sudo_password": bool(config.agent.sudo_password),
+        "has_nvd_api_key": bool(config.agent.nvd_api_key),
         "max_steps": config.agent.max_steps,
         "timeout": config.agent.timeout,
         "report_format": config.reporting.format,

@@ -45,6 +45,8 @@ def test_agent_config_defaults():
     assert "nikto" in cfg.allowed_tools
     assert "sqlmap" in cfg.allowed_tools
     assert cfg.timeout == 300
+    assert cfg.nvd_api_key == ""
+    assert cfg.sudo_password == ""
 
 
 def test_deep_merge():

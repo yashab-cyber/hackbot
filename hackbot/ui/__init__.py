@@ -265,10 +265,16 @@ def show_help() -> None:
   /tools             Show available security tools
   /model <name>      Switch AI model
   /key <api_key>     Set API key
+  /nvd-key <key>     Set NVD API key for faster CVE lookups
   /language <lang>   Set response language (e.g. Spanish, Japanese)
 
 [bold]Other:[/]
   /help              Show this help
+  /cve               CVE / vulnerability lookup (NVD)
+  /osint             OSINT reconnaissance
+  /attack            MITRE ATT&CK mapping
+  /vulndb            Vulnerability database queries
+  /compliance        Compliance mapping (PCI-DSS, OWASP, etc.)
   /export            Export findings/report
   /pdf               Generate professional PDF report
   /diff              Compare two assessments (diff report)

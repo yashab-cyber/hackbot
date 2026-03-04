@@ -81,6 +81,14 @@ class TestCVELookup:
     def test_init_with_key(self):
         engine = CVELookup(nvd_api_key="test-key")
         assert engine.nvd_api_key == "test-key"
+        assert engine._session.headers.get("apiKey") == "test-key"
+
+    def test_rate_limit_value_no_key(self):
+        """Without API key, rate limit should be slower."""
+        from hackbot.core.cve import _NVD_RATE_LIMIT_NO_KEY, _NVD_RATE_LIMIT_WITH_KEY
+        assert _NVD_RATE_LIMIT_NO_KEY > _NVD_RATE_LIMIT_WITH_KEY
+        assert _NVD_RATE_LIMIT_NO_KEY >= 6.0
+        assert _NVD_RATE_LIMIT_WITH_KEY <= 1.0
 
     def test_lookup_invalid_cve_id(self):
         engine = CVELookup()

@@ -52,6 +52,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "safe_mode": True,
         "sudo_mode": False,
         "sudo_password": "",
+        "nvd_api_key": "",
         "allowed_tools": [
             "nmap",
             "nikto",
@@ -117,6 +118,7 @@ class AgentConfig:
     safe_mode: bool = True
     sudo_mode: bool = False
     sudo_password: str = ""
+    nvd_api_key: str = ""
     allowed_tools: List[str] = field(default_factory=lambda: DEFAULT_CONFIG["agent"]["allowed_tools"])
 
 
@@ -222,6 +224,10 @@ def load_config() -> HackBotConfig:
     if os.environ.get("TELEGRAM_BOT_TOKEN"):
         merged.setdefault("telegram", {})["token"] = os.environ["TELEGRAM_BOT_TOKEN"]
 
+    # NVD API key env override
+    if os.environ.get("NVD_API_KEY"):
+        merged.setdefault("agent", {})["nvd_api_key"] = os.environ["NVD_API_KEY"]
+
     cfg = HackBotConfig(
         ai=AIConfig(**merged.get("ai", {})),
         agent=AgentConfig(**merged.get("agent", {})),
@@ -251,6 +257,7 @@ def save_config(cfg: HackBotConfig) -> None:
             "safe_mode": cfg.agent.safe_mode,
             "sudo_mode": cfg.agent.sudo_mode,
             "sudo_password": cfg.agent.sudo_password,
+            "nvd_api_key": cfg.agent.nvd_api_key,
             "allowed_tools": cfg.agent.allowed_tools,
         },
         "reporting": {

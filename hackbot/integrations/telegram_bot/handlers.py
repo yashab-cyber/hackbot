@@ -325,7 +325,7 @@ async def cmd_cve(bot: "HackBotTelegram", update: Update, context: ContextTypes.
         return
 
     await update.message.chat.send_action(ChatAction.TYPING)
-    cve_engine = CVELookup()
+    cve_engine = CVELookup(nvd_api_key=bot.config.agent.nvd_api_key)
     loop = asyncio.get_event_loop()
 
     try:

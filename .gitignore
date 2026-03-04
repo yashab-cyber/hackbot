@@ -18,3 +18,4 @@ build/
 *.swp
 *~
 update/
+public/nvd api.txt

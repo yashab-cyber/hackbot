@@ -102,7 +102,8 @@ GITHUB_EXPLOIT_SEARCH = "https://api.github.com/search/repositories"
 
 # Rate limit: NVD allows ~5 req/30s without API key, ~50 req/30s with key
 _last_nvd_request: float = 0.0
-_NVD_RATE_LIMIT = 6.5  # seconds between requests without API key
+_NVD_RATE_LIMIT_NO_KEY = 6.5  # seconds between requests without API key
+_NVD_RATE_LIMIT_WITH_KEY = 0.6  # seconds between requests with API key
 
 
 class CVELookup:
@@ -129,10 +130,10 @@ class CVELookup:
     def _nvd_rate_limit(self) -> None:
         """Enforce NVD rate limiting."""
         global _last_nvd_request
-        if not self.nvd_api_key:
-            elapsed = time.time() - _last_nvd_request
-            if elapsed < _NVD_RATE_LIMIT:
-                time.sleep(_NVD_RATE_LIMIT - elapsed)
+        limit = _NVD_RATE_LIMIT_WITH_KEY if self.nvd_api_key else _NVD_RATE_LIMIT_NO_KEY
+        elapsed = time.time() - _last_nvd_request
+        if elapsed < limit:
+            time.sleep(limit - elapsed)
         _last_nvd_request = time.time()
 
     def _parse_nvd_item(self, item: Dict[str, Any]) -> CVEEntry:

@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from hackbot.config import HackBotConfig, REPORTS_DIR
+from hackbot.core.cve import CVELookup
 from hackbot.core.engine import AIEngine, Conversation, create_conversation
 from hackbot.core.runner import ToolResult, ToolRunner
 from hackbot.core.vulndb import VulnDB
@@ -137,6 +138,9 @@ class AgentMode:
         self.vulndb = VulnDB()
         self._assessment_id: Optional[int] = None
 
+        # CVE / NVD intelligence engine
+        self.cve_engine = CVELookup(nvd_api_key=config.agent.nvd_api_key)
+
         # Memory & summarization
         self.memory = MemoryManager()
         self.session_id = self.memory.new_session_id("agent")
@@ -193,6 +197,7 @@ class AgentMode:
 - Available Tools: {', '.join(installed) if installed else 'None detected'}
 - Unavailable Tools: {', '.join(not_installed) if not_installed else 'None'}
 - Max Steps: {self.config.agent.max_steps}
+- NVD CVE Intelligence: {'Enabled (API key configured — fast rate limit)' if self.config.agent.nvd_api_key else 'Enabled (no API key — slower rate limit)'}
 """
 
         # Add custom plugin context
@@ -651,11 +656,76 @@ Explain your reasoning at each step."""
             self.on_step(step)
 
         status = "SUCCESS" if result.success else "FAILED"
-        return (
+        output = (
             f"**[{tool}]** {status} (exit={result.return_code}, {result.duration:.1f}s)\n"
             f"Command: `{command}`\n\n"
             f"```\n{result.output[:5000]}\n```"
         )
+
+        # Auto CVE enrichment for nmap scans
+        if result.success and tool.lower() in ("nmap", "nmap.exe"):
+            cve_intel = self._enrich_with_cves(result.output)
+            if cve_intel:
+                output += f"\n\n{cve_intel}"
+
+        return output
+
+    def _enrich_with_cves(self, nmap_output: str) -> str:
+        """
+        Auto-enrich nmap scan results with CVE intelligence from NVD.
+
+        Parses the nmap output for discovered services / versions and looks up
+        known CVEs, returning a formatted markdown report that is appended to
+        the tool result fed back to the AI.
+        """
+        try:
+            service_cves = self.cve_engine.parse_nmap_and_lookup(
+                nmap_output, max_per_service=5,
+            )
+        except Exception as exc:
+            logger.warning("CVE auto-enrichment failed: %s", exc)
+            return ""
+
+        if not service_cves:
+            return ""
+
+        report = CVELookup.format_nmap_cve_report(service_cves)
+
+        # Also persist high-severity CVEs as findings
+        for service_key, cves in service_cves.items():
+            for cve in cves:
+                if cve.cvss_score >= 7.0:
+                    finding = Finding(
+                        title=f"{cve.cve_id} — {service_key}",
+                        severity=Severity.CRITICAL if cve.cvss_score >= 9.0 else Severity.HIGH,
+                        description=cve.description,
+                        evidence=f"CVSS {cve.cvss_score} ({cve.cvss_vector})",
+                        recommendation=f"Patch or mitigate {cve.cve_id}. See: {cve.references[0] if cve.references else 'NVD'}",
+                        tool="nmap+nvd",
+                    )
+                    self.findings.append(finding)
+                    if self._assessment_id is not None:
+                        try:
+                            self.vulndb.add_finding(
+                                self._assessment_id,
+                                finding.to_dict(),
+                                target=self.target,
+                            )
+                        except Exception:
+                            pass
+
+        # Log enrichment summary
+        total = sum(len(c) for c in service_cves.values())
+        high_crit = sum(
+            1 for cves in service_cves.values()
+            for c in cves if c.cvss_score >= 7.0
+        )
+        logger.info(
+            "CVE enrichment: %d vulns across %d services (%d high/critical)",
+            total, len(service_cves), high_crit,
+        )
+
+        return report
 
     def _record_finding(self, action: Dict[str, Any]) -> None:
         """Record a security finding."""
