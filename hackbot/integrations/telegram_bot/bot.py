@@ -188,6 +188,7 @@ class HackBotTelegram:
         app.add_handler(CommandHandler("export", auth(_bind(h.cmd_export))))
         app.add_handler(CommandHandler("version", auth(_bind(h.cmd_version))))
         app.add_handler(CommandHandler("status", auth(_bind(h.cmd_status))))
+        app.add_handler(CommandHandler("vulndb", auth(_bind(h.cmd_vulndb))))
 
         app.add_handler(CallbackQueryHandler(auth(_bind(h.callback_handler))))
         app.add_handler(MessageHandler(

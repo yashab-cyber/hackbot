@@ -20,6 +20,7 @@ from hackbot.core.engine import PROVIDERS, SUPPORTED_LANGUAGES
 from hackbot.core.cve import CVELookup
 from hackbot.core.compliance import ComplianceMapper
 from hackbot.core.osint import OSINTEngine
+from hackbot.core.vulndb import VulnDB
 from hackbot.modes.agent import AgentMode
 from hackbot.reporting import ReportGenerator
 
@@ -567,6 +568,97 @@ async def cmd_status(bot: "HackBotTelegram", update: Update, context: ContextTyp
         f"Findings: {len(session.agent_mode.findings) if session.agent_mode else 0}",
         parse_mode=ParseMode.HTML,
     )
+
+
+async def cmd_vulndb(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /vulndb — query the vulnerability database."""
+    args = " ".join(context.args) if context.args else ""
+    parts = args.split(maxsplit=1)
+    subcmd = parts[0].lower() if parts else "stats"
+    sub_args = parts[1] if len(parts) > 1 else ""
+
+    db = VulnDB()
+
+    if subcmd == "stats":
+        stats = db.get_stats(sub_args)
+        sev_lines = []
+        for sev in ("Critical", "High", "Medium", "Low", "Info"):
+            c = stats.by_severity.get(sev, 0)
+            if c > 0:
+                icon = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Low": "🔵", "Info": "⚪"}.get(sev, "•")
+                sev_lines.append(f"  {icon} {sev}: {c}")
+        sev_text = "\n".join(sev_lines) if sev_lines else "  None"
+
+        await update.message.reply_text(
+            f"📊 <b>Vulnerability Database</b>\n\n"
+            f"Assessments: {stats.total_assessments}\n"
+            f"Targets: {stats.unique_targets}\n"
+            f"Findings: {stats.total_findings}\n"
+            f"Risk Score: {stats.overall_risk_score:.1f}\n\n"
+            f"<b>By Severity:</b>\n{sev_text}\n\n"
+            f"🔓 Open: {stats.open_findings}\n"
+            f"🔧 In Progress: {stats.in_progress_findings}\n"
+            f"✅ Resolved: {stats.resolved_findings}\n\n"
+            f"DB Size: {db.db_size}",
+            parse_mode=ParseMode.HTML,
+        )
+
+    elif subcmd == "search":
+        if not sub_args:
+            await update.message.reply_text("Usage: /vulndb search <query>")
+            return
+        results = db.search_findings(query=sub_args, limit=20)
+        if not results:
+            await update.message.reply_text(f"No findings matching '{sub_args}'")
+            return
+        lines = [f"🔍 <b>Search: {format_html(sub_args)}</b> ({len(results)} results)\n"]
+        icons = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Low": "🔵", "Info": "⚪"}
+        for f in results[:20]:
+            icon = icons.get(f.severity, "•")
+            lines.append(f"{icon} #{f.id} <b>{format_html(f.title)}</b> [{f.severity}] — {f.status}")
+        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+
+    elif subcmd == "open":
+        results = db.search_findings(status="open", limit=20)
+        if not results:
+            await update.message.reply_text("✅ No open findings!")
+            return
+        lines = [f"🔓 <b>Open Findings</b> ({len(results)})\n"]
+        icons = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Low": "🔵", "Info": "⚪"}
+        for f in results:
+            icon = icons.get(f.severity, "•")
+            lines.append(f"{icon} #{f.id} <b>{format_html(f.title)}</b> [{f.severity}] — {f.target}")
+        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+
+    elif subcmd == "status" and sub_args:
+        status_parts = sub_args.split(maxsplit=2)
+        if len(status_parts) < 2 or not status_parts[0].isdigit():
+            await update.message.reply_text(
+                "Usage: /vulndb status <id> <open|in_progress|resolved|accepted|false_positive>"
+            )
+            return
+        fid = int(status_parts[0])
+        new_status = status_parts[1]
+        note = status_parts[2] if len(status_parts) > 2 else ""
+        try:
+            ok = db.update_status(fid, new_status, note=note, changed_by="telegram")
+            if ok:
+                await update.message.reply_text(f"✅ Finding #{fid} → <b>{new_status}</b>", parse_mode=ParseMode.HTML)
+            else:
+                await update.message.reply_text(f"❌ Finding #{fid} not found")
+        except ValueError as e:
+            await update.message.reply_text(f"❌ {e}")
+
+    else:
+        await update.message.reply_text(
+            "📊 <b>Vulnerability Database</b>\n\n"
+            "<b>Commands:</b>\n"
+            "/vulndb stats — Statistics\n"
+            "/vulndb search &lt;query&gt; — Search\n"
+            "/vulndb open — Open findings\n"
+            "/vulndb status &lt;id&gt; &lt;state&gt; — Update status",
+            parse_mode=ParseMode.HTML,
+        )
 
 
 # ── Inline keyboard callback ────────────────────────────────────────────────

@@ -38,6 +38,7 @@ from hackbot.core.campaigns import (
 from hackbot.core.remediation import RemediationEngine
 from hackbot.core.proxy import ProxyEngine, get_proxy_engine, reset_proxy_engine
 from hackbot.core.updater import check_for_updates, perform_update
+from hackbot.core.vulndb import VulnDB
 from hackbot.memory import MemoryManager
 from hackbot.modes.agent import AgentMode
 from hackbot.modes.chat import ChatMode
@@ -633,6 +634,118 @@ def api_agent_remediate():
         "markdown": RemediationEngine.get_summary_markdown(results),
         "count": len(results),
         "total_steps": sum(len(r.steps) for r in results),
+    })
+
+
+# ── Vulnerability Database ───────────────────────────────────────────────────
+
+
+@app.route("/api/vulndb/stats")
+def api_vulndb_stats():
+    """Get vulnerability database statistics."""
+    target = request.args.get("target", "")
+    db = VulnDB()
+    stats = db.get_stats(target)
+    return jsonify({
+        "total_assessments": stats.total_assessments,
+        "total_findings": stats.total_findings,
+        "open_findings": stats.open_findings,
+        "resolved_findings": stats.resolved_findings,
+        "in_progress_findings": stats.in_progress_findings,
+        "false_positive_findings": stats.false_positive_findings,
+        "accepted_findings": stats.accepted_findings,
+        "by_severity": stats.by_severity,
+        "by_target": stats.by_target,
+        "overall_risk_score": stats.overall_risk_score,
+        "unique_targets": stats.unique_targets,
+        "avg_findings_per_assessment": stats.avg_findings_per_assessment,
+        "oldest_open_finding_days": stats.oldest_open_finding_days,
+        "last_assessment_at": stats.last_assessment_at,
+        "db_size": db.db_size,
+    })
+
+
+@app.route("/api/vulndb/findings")
+def api_vulndb_findings():
+    """Search/query findings from the vulnerability database."""
+    db = VulnDB()
+    results = db.search_findings(
+        query=request.args.get("q", ""),
+        target=request.args.get("target", ""),
+        severity=request.args.get("severity", ""),
+        status=request.args.get("status", ""),
+        limit=int(request.args.get("limit", "100")),
+        offset=int(request.args.get("offset", "0")),
+    )
+    return jsonify({
+        "findings": [f.to_dict() for f in results],
+        "count": len(results),
+    })
+
+
+@app.route("/api/vulndb/findings/<int:finding_id>")
+def api_vulndb_finding_detail(finding_id: int):
+    """Get a single finding with remediation log."""
+    db = VulnDB()
+    finding = db.get_finding(finding_id)
+    if not finding:
+        return jsonify({"ok": False, "error": "Finding not found"}), 404
+    return jsonify({
+        "ok": True,
+        "finding": finding.to_dict(),
+        "remediation_log": db.get_remediation_log(finding_id),
+    })
+
+
+@app.route("/api/vulndb/findings/<int:finding_id>/status", methods=["POST"])
+def api_vulndb_update_status(finding_id: int):
+    """Update the status of a finding."""
+    body = request.get_json(silent=True) or {}
+    new_status = body.get("status", "")
+    note = body.get("note", "")
+    db = VulnDB()
+    try:
+        ok = db.update_status(finding_id, new_status, note=note, changed_by="gui")
+        if ok:
+            return jsonify({"ok": True})
+        return jsonify({"ok": False, "error": "Finding not found"}), 404
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/vulndb/assessments")
+def api_vulndb_assessments():
+    """List assessments."""
+    db = VulnDB()
+    target = request.args.get("target", "")
+    assessments = db.list_assessments(target=target)
+    return jsonify({
+        "assessments": [
+            {
+                "id": a.id,
+                "target": a.target,
+                "scope": a.scope,
+                "started_at": a.started_at,
+                "finished_at": a.finished_at,
+                "total_steps": a.total_steps,
+                "total_findings": a.total_findings,
+                "tools_used": a.tools_used,
+                "notes": a.notes,
+            }
+            for a in assessments
+        ],
+        "count": len(assessments),
+    })
+
+
+@app.route("/api/vulndb/risk")
+def api_vulndb_risk():
+    """Get risk score and history for a target."""
+    db = VulnDB()
+    target = request.args.get("target", "")
+    return jsonify({
+        "risk_score": db.calculate_risk_score(target),
+        "history": db.get_risk_history(target) if target else [],
     })
 
 

@@ -27,6 +27,7 @@ from typing import Any, Callable, Dict, List, Optional
 from hackbot.config import HackBotConfig, REPORTS_DIR
 from hackbot.core.engine import AIEngine, Conversation, create_conversation
 from hackbot.core.runner import ToolResult, ToolRunner
+from hackbot.core.vulndb import VulnDB
 from hackbot.memory import ConversationSummarizer, MemoryManager, CONTINUE_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -131,6 +132,10 @@ class AgentMode:
         self._last_response: str = ""
         self._was_truncated: bool = False
 
+        # Vulnerability database
+        self.vulndb = VulnDB()
+        self._assessment_id: Optional[int] = None
+
         # Memory & summarization
         self.memory = MemoryManager()
         self.session_id = self.memory.new_session_id("agent")
@@ -155,6 +160,16 @@ class AgentMode:
         self.findings = []
         self._step_count = 0
         self.is_running = True
+
+        # Create assessment in vulnerability database
+        try:
+            tools_used = [t for t, avail in self.runner.get_available_tools().items() if avail]
+            self._assessment_id = self.vulndb.create_assessment(
+                target=target, scope=scope, tools_used=tools_used,
+            )
+        except Exception as exc:
+            logger.warning("VulnDB: failed to create assessment: %s", exc)
+            self._assessment_id = None
 
         self.conversation = create_conversation("agent", target, language=self.config.ui.language)
 
@@ -406,6 +421,19 @@ Explain your reasoning at each step."""
     def stop(self) -> str:
         """Stop the current assessment and generate a summary."""
         self.is_running = False
+
+        # Finalize assessment in vulnerability database
+        if self._assessment_id is not None:
+            try:
+                self.vulndb.finish_assessment(
+                    self._assessment_id,
+                    total_steps=len(self.steps),
+                    total_findings=len(self.findings),
+                )
+                self.vulndb.take_risk_snapshot(self.target)
+            except Exception as exc:
+                logger.warning("VulnDB: failed to finish assessment: %s", exc)
+
         if self.conversation:
             self.conversation.add(
                 "user",
@@ -637,6 +665,15 @@ Explain your reasoning at each step."""
         )
 
         self.findings.append(finding)
+
+        # Persist to vulnerability database
+        if self._assessment_id is not None:
+            try:
+                self.vulndb.add_finding(
+                    self._assessment_id, finding.to_dict(), target=self.target,
+                )
+            except Exception as exc:
+                logger.warning("VulnDB: failed to store finding: %s", exc)
 
         step = AgentStep(
             step_num=len(self.steps) + 1,

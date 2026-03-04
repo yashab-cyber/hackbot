@@ -46,6 +46,7 @@ from hackbot.core.remediation import RemediationEngine
 from hackbot.core.proxy import ProxyEngine, get_proxy_engine, reset_proxy_engine
 from hackbot.core.topology import TopologyParser
 from hackbot.core.updater import check_for_updates, perform_update
+from hackbot.core.vulndb import VulnDB
 from hackbot.modes.agent import AgentMode
 from hackbot.modes.chat import ChatMode
 from hackbot.modes.plan import PlanMode
@@ -183,6 +184,7 @@ class HackBotApp:
             "/language": lambda: self._set_language(args),
             "/lang": lambda: self._set_language(args),
             "/telegram": lambda: self._handle_telegram(args),
+            "/vulndb": lambda: self._handle_vulndb(args),
         }
 
         handler = commands.get(cmd)
@@ -1076,6 +1078,181 @@ class HackBotApp:
             print_info("  replay <id>    — Replay a captured request")
             print_info("  flags          — Show flagged requests")
             print_info("  detail <id>    — Show full request/response details")
+
+        return True
+
+    def _handle_vulndb(self, args: str = "") -> bool:
+        """Handle /vulndb commands — query the vulnerability database."""
+        from rich.table import Table
+
+        db = VulnDB()
+        parts = args.strip().split(maxsplit=1)
+        subcmd = parts[0].lower() if parts else "stats"
+        sub_args = parts[1] if len(parts) > 1 else ""
+
+        if subcmd == "stats":
+            console.print(Markdown(db.format_stats(sub_args)))
+
+        elif subcmd == "search":
+            if not sub_args:
+                print_error("Usage: /vulndb search <query>")
+                return True
+            results = db.search_findings(query=sub_args)
+            console.print(Markdown(db.format_findings_table(results)))
+
+        elif subcmd in ("target", "targets"):
+            if not sub_args:
+                # List all targets
+                stats = db.get_stats()
+                if stats.by_target:
+                    table = Table(title="Targets", border_style="dim")
+                    table.add_column("Target")
+                    table.add_column("Findings", justify="right")
+                    for t, c in stats.by_target.items():
+                        table.add_row(t, str(c))
+                    console.print(table)
+                else:
+                    print_info("No targets in database")
+            else:
+                results = db.get_findings_by_target(sub_args)
+                console.print(Markdown(db.format_findings_table(results, show_target=False)))
+
+        elif subcmd == "severity":
+            sev = sub_args.capitalize() if sub_args else ""
+            if sev not in ("Critical", "High", "Medium", "Low", "Info"):
+                print_error("Usage: /vulndb severity <Critical|High|Medium|Low|Info>")
+                return True
+            results = db.search_findings(severity=sev)
+            console.print(Markdown(db.format_findings_table(results)))
+
+        elif subcmd == "open":
+            results = db.search_findings(status="open")
+            console.print(Markdown(db.format_findings_table(results)))
+
+        elif subcmd == "status":
+            # Update a finding's status: /vulndb status <id> <new_status> [note]
+            status_parts = sub_args.split(maxsplit=2)
+            if len(status_parts) < 2 or not status_parts[0].isdigit():
+                print_error("Usage: /vulndb status <finding_id> <open|in_progress|resolved|accepted|false_positive> [note]")
+                return True
+            fid = int(status_parts[0])
+            new_status = status_parts[1]
+            note = status_parts[2] if len(status_parts) > 2 else ""
+            try:
+                ok = db.update_status(fid, new_status, note=note)
+                if ok:
+                    print_success(f"Finding #{fid} → {new_status}")
+                else:
+                    print_error(f"Finding #{fid} not found")
+            except ValueError as e:
+                print_error(str(e))
+
+        elif subcmd == "detail":
+            if not sub_args.isdigit():
+                print_error("Usage: /vulndb detail <finding_id>")
+                return True
+            finding = db.get_finding(int(sub_args))
+            if not finding:
+                print_error(f"Finding #{sub_args} not found")
+                return True
+            lines = [
+                f"# Finding #{finding.id}\n",
+                f"**Title:** {finding.title}",
+                f"**Severity:** {finding.severity}",
+                f"**Status:** {finding.status}",
+                f"**Target:** {finding.target}",
+                f"**Tool:** {finding.tool}",
+                f"**Risk Score:** {finding.risk_score}",
+                f"**Found:** {time.strftime('%Y-%m-%d %H:%M', time.localtime(finding.found_at))}",
+            ]
+            if finding.description:
+                lines.append(f"\n**Description:**\n{finding.description}")
+            if finding.evidence:
+                lines.append(f"\n**Evidence:**\n```\n{finding.evidence}\n```")
+            if finding.recommendation:
+                lines.append(f"\n**Recommendation:**\n{finding.recommendation}")
+            if finding.cve_ids:
+                lines.append(f"\n**CVEs:** {', '.join(finding.cve_ids)}")
+
+            # Show remediation log
+            rlog = db.get_remediation_log(finding.id)
+            if rlog:
+                lines.append("\n**Remediation History:**")
+                for entry in rlog:
+                    ts = time.strftime("%Y-%m-%d %H:%M", time.localtime(entry["changed_at"]))
+                    lines.append(f"  • {ts}: {entry['old_status']} → {entry['new_status']} ({entry['changed_by']}) {entry['note']}")
+
+            console.print(Markdown("\n".join(lines)))
+
+        elif subcmd == "risk":
+            target = sub_args or (self.agent.target if self.agent else "")
+            if not target:
+                score = db.calculate_risk_score()
+                print_info(f"Overall risk score: {score:.1f}")
+            else:
+                score = db.calculate_risk_score(target)
+                print_info(f"Risk score for {target}: {score:.1f}")
+                history = db.get_risk_history(target, limit=10)
+                if history:
+                    print_info("Recent snapshots:")
+                    for h in history:
+                        ts = time.strftime("%Y-%m-%d %H:%M", time.localtime(h["snapshot_at"]))
+                        print_info(f"  {ts}: score={h['risk_score']:.1f} open={h['open']}/{h['total']}")
+
+        elif subcmd == "assessments":
+            assessments = db.list_assessments(target=sub_args)
+            if not assessments:
+                print_info("No assessments found")
+                return True
+            table = Table(title="Assessments", border_style="dim")
+            table.add_column("#", style="dim", width=4)
+            table.add_column("Target")
+            table.add_column("Scope", style="dim")
+            table.add_column("Findings", justify="right")
+            table.add_column("Steps", justify="right")
+            table.add_column("Started", style="dim")
+            for a in assessments:
+                ts = time.strftime("%Y-%m-%d %H:%M", time.localtime(a.started_at))
+                table.add_row(
+                    str(a.id), a.target, a.scope[:30] or "—",
+                    str(a.total_findings), str(a.total_steps), ts,
+                )
+            console.print(table)
+
+        elif subcmd == "delete":
+            if not sub_args.isdigit():
+                print_error("Usage: /vulndb delete <finding_id>")
+                return True
+            ok = db.delete_finding(int(sub_args))
+            if ok:
+                print_success(f"Finding #{sub_args} deleted")
+            else:
+                print_error(f"Finding #{sub_args} not found")
+
+        elif subcmd == "purge":
+            if confirm_action("PURGE ALL DATA", "This will delete ALL findings, assessments, and history"):
+                count = db.purge_all()
+                print_success(f"Purged {count} records. Database is empty.")
+            else:
+                print_info("Cancelled")
+
+        elif subcmd == "size":
+            print_info(f"Database size: {db.db_size}")
+
+        else:
+            print_info("Usage: /vulndb <subcommand>")
+            print_info("  stats [target]            — Show database statistics")
+            print_info("  search <query>            — Search findings by text")
+            print_info("  target [host]             — List targets or show target findings")
+            print_info("  severity <level>          — Filter by severity (Critical/High/Medium/Low/Info)")
+            print_info("  open                      — Show all open findings")
+            print_info("  status <id> <new> [note]  — Update finding status")
+            print_info("  detail <id>               — Show finding details + history")
+            print_info("  risk [target]             — Show risk score and trends")
+            print_info("  assessments [target]      — List assessments")
+            print_info("  delete <id>               — Delete a finding")
+            print_info("  purge                     — Delete ALL data (⚠️)")
+            print_info("  size                      — Show database file size")
 
         return True
 
