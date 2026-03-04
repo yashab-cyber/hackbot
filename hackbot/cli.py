@@ -47,6 +47,7 @@ from hackbot.core.proxy import ProxyEngine, get_proxy_engine, reset_proxy_engine
 from hackbot.core.topology import TopologyParser
 from hackbot.core.updater import check_for_updates, perform_update
 from hackbot.core.vulndb import VulnDB
+from hackbot.core.attack import AttackMapper
 from hackbot.modes.agent import AgentMode
 from hackbot.modes.chat import ChatMode
 from hackbot.modes.plan import PlanMode
@@ -185,6 +186,7 @@ class HackBotApp:
             "/lang": lambda: self._set_language(args),
             "/telegram": lambda: self._handle_telegram(args),
             "/vulndb": lambda: self._handle_vulndb(args),
+            "/attack": lambda: self._handle_attack(args),
         }
 
         handler = commands.get(cmd)
@@ -1316,6 +1318,20 @@ class HackBotApp:
             except Exception:
                 pass
 
+        # Build ATT&CK mapping data
+        attack_data = None
+        if findings:
+            try:
+                from hackbot.core.attack import AttackMapper
+                amapper = AttackMapper()
+                areport = amapper.map_findings(
+                    findings, target=self.agent.target, tool_history=tool_history,
+                )
+                if areport.mappings:
+                    attack_data = areport.to_dict()
+            except Exception:
+                pass
+
         print_info("Generating professional PDF report...")
         gen = PDFReportGenerator(include_raw=self.config.reporting.include_raw_output)
         path = gen.generate(
@@ -1326,6 +1342,7 @@ class HackBotApp:
             summary="",
             start_time=self._start_time,
             compliance_data=compliance_data,
+            attack_data=attack_data,
         )
         print_success(f"PDF report saved: {path}")
         return True
@@ -1621,6 +1638,156 @@ class HackBotApp:
         console.print(Markdown(md))
 
         return True
+
+    def _handle_attack(self, args: str) -> bool:
+        """Handle /attack commands — MITRE ATT&CK mapping."""
+        parts = args.strip().split(maxsplit=1)
+        subcmd = parts[0].lower() if parts else "map"
+        sub_args = parts[1] if len(parts) > 1 else ""
+
+        mapper = AttackMapper()
+
+        if subcmd == "map":
+            # Map current agent findings to ATT&CK techniques
+            if not self.agent or not self.agent.findings:
+                print_error("No agent findings to map. Run an agent assessment first with /agent <target>")
+                return True
+
+            print_info("Mapping findings to MITRE ATT&CK techniques...")
+            findings_dicts = [f.to_dict() for f in self.agent.findings]
+            tool_history = [r.to_dict() for r in self.agent.runner.history]
+
+            report = mapper.map_findings(
+                findings_dicts, target=self.agent.target, tool_history=tool_history,
+            )
+            md = AttackMapper.format_report(report)
+            console.print(Markdown(md))
+            return True
+
+        elif subcmd == "layer":
+            # Export ATT&CK Navigator layer JSON
+            if not self.agent or not self.agent.findings:
+                print_error("No agent findings. Run an agent assessment first.")
+                return True
+
+            from hackbot.config import REPORTS_DIR
+
+            findings_dicts = [f.to_dict() for f in self.agent.findings]
+            tool_history = [r.to_dict() for r in self.agent.runner.history]
+            report = mapper.map_findings(
+                findings_dicts, target=self.agent.target, tool_history=tool_history,
+            )
+
+            layer_json = mapper.generate_navigator_json(report)
+            REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+            ts = time.strftime("%Y%m%d_%H%M%S")
+            safe_target = self.agent.target.replace("/", "_").replace(":", "_").replace(" ", "_")
+            path = REPORTS_DIR / f"attack_layer_{safe_target}_{ts}.json"
+            path.write_text(layer_json)
+            print_success(f"ATT&CK Navigator layer saved: {path}")
+            print_info("Import into https://mitre-attack.github.io/attack-navigator/ to visualize")
+            return True
+
+        elif subcmd == "summary":
+            # Short summary of current ATT&CK mapping
+            if not self.agent or not self.agent.findings:
+                print_error("No agent findings to map.")
+                return True
+
+            findings_dicts = [f.to_dict() for f in self.agent.findings]
+            tool_history = [r.to_dict() for r in self.agent.runner.history]
+            report = mapper.map_findings(
+                findings_dicts, target=self.agent.target, tool_history=tool_history,
+            )
+            md = AttackMapper.format_summary(report)
+            console.print(Markdown(md))
+            return True
+
+        elif subcmd == "tactics":
+            # List all ATT&CK tactics
+            tactics = AttackMapper.list_tactics()
+            from rich.table import Table
+            table = Table(title="MITRE ATT&CK Tactics", border_style="dim")
+            table.add_column("ID", style="cyan", width=8)
+            table.add_column("Name", style="bold")
+            table.add_column("Description", style="dim")
+            for t in tactics:
+                table.add_row(t["id"], t["name"], t["description"][:60])
+            console.print(table)
+            return True
+
+        elif subcmd == "techniques":
+            # List techniques, optionally filtered by tactic
+            tactic_id = sub_args.strip().upper()
+            techs = AttackMapper.list_techniques(tactic_id)
+            if not techs:
+                print_info(f"No techniques found" + (f" for tactic {tactic_id}" if tactic_id else ""))
+                return True
+
+            from rich.table import Table
+            title = f"Techniques: {tactic_id}" if tactic_id else "All ATT&CK Techniques"
+            table = Table(title=title, border_style="dim")
+            table.add_column("ID", style="cyan", width=10)
+            table.add_column("Name", style="bold")
+            table.add_column("Tactics", style="dim")
+            for t in techs[:100]:
+                table.add_row(t["id"], t["name"], ", ".join(t["tactic_ids"]))
+            if len(techs) > 100:
+                print_info(f"(showing 100 of {len(techs)} techniques)")
+            console.print(table)
+            return True
+
+        elif subcmd == "tool":
+            # Show ATT&CK techniques for a specific tool
+            tool_name = sub_args.strip()
+            if not tool_name:
+                print_error("Usage: /attack tool <tool_name>")
+                return True
+            techs = AttackMapper.get_tool_techniques(tool_name)
+            if not techs:
+                print_info(f"No ATT&CK mappings for tool: {tool_name}")
+                return True
+
+            from rich.table import Table
+            table = Table(title=f"ATT&CK Techniques: {tool_name}", border_style="dim")
+            table.add_column("ID", style="cyan")
+            table.add_column("Name", style="bold")
+            table.add_column("Confidence", style="yellow")
+            table.add_column("Notes", style="dim")
+            for t in techs:
+                tech = t["technique"]
+                table.add_row(tech["id"], tech["name"], t["confidence"], t["notes"])
+            console.print(table)
+            return True
+
+        elif subcmd == "lookup":
+            # Look up a specific technique by ID
+            tech_id = sub_args.strip().upper()
+            if not tech_id:
+                print_error("Usage: /attack lookup <technique_id>")
+                return True
+            tech = AttackMapper.get_technique(tech_id)
+            if not tech:
+                print_info(f"Technique not found: {tech_id}")
+                return True
+            console.print(f"\n[bold cyan]{tech['id']}[/] — {tech['name']}")
+            console.print(f"  [dim]Tactics:[/] {', '.join(tech['tactic_ids'])}")
+            console.print(f"  [dim]URL:[/] {tech['url']}")
+            if tech["description"]:
+                console.print(f"  [dim]{tech['description']}[/]")
+            console.print()
+            return True
+
+        else:
+            print_info("Usage: /attack <subcommand>")
+            print_info("  map        — Map agent findings to ATT&CK techniques")
+            print_info("  layer      — Export ATT&CK Navigator layer JSON")
+            print_info("  summary    — Short summary of ATT&CK coverage")
+            print_info("  tactics    — List all ATT&CK tactics")
+            print_info("  techniques [tactic_id] — List techniques")
+            print_info("  tool <name> — Show ATT&CK techniques for a tool")
+            print_info("  lookup <id> — Look up a technique by ID")
+            return True
 
     def _show_plugins(self, args: str) -> bool:
         """List, reload, or manage user plugins."""

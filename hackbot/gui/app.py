@@ -1308,6 +1308,90 @@ def api_compliance_controls(framework):
     return jsonify([c.to_dict() for c in controls])
 
 
+# ── ATT&CK Routes ────────────────────────────────────────────────────────────
+
+@app.route("/api/attack/map", methods=["POST"])
+def api_attack_map():
+    """Map findings to ATT&CK techniques."""
+    data = request.get_json(force=True)
+    findings = data.get("findings", [])
+    target = data.get("target", "")
+    tool_history = data.get("tool_history", [])
+
+    from hackbot.core.attack import AttackMapper
+    mapper = AttackMapper()
+    report = mapper.map_findings(findings, target=target, tool_history=tool_history)
+    return jsonify(report.to_dict())
+
+
+@app.route("/api/attack/from-agent")
+def api_attack_from_agent():
+    """Map current agent findings to ATT&CK techniques."""
+    agent: Optional[AgentMode] = _state["agent"]
+    if not agent or not agent.findings:
+        return jsonify({"error": "No agent findings available"}), 400
+
+    from hackbot.core.attack import AttackMapper
+    mapper = AttackMapper()
+    findings_dicts = [f.to_dict() for f in agent.findings]
+    tool_history = [r.to_dict() for r in agent.runner.history]
+    report = mapper.map_findings(findings_dicts, target=agent.target, tool_history=tool_history)
+
+    return jsonify({
+        "report": report.to_dict(),
+        "markdown": AttackMapper.format_report(report),
+    })
+
+
+@app.route("/api/attack/layer")
+def api_attack_layer():
+    """Generate ATT&CK Navigator layer JSON from current agent findings."""
+    agent: Optional[AgentMode] = _state["agent"]
+    if not agent or not agent.findings:
+        return jsonify({"error": "No agent findings available"}), 400
+
+    from hackbot.core.attack import AttackMapper
+    mapper = AttackMapper()
+    findings_dicts = [f.to_dict() for f in agent.findings]
+    tool_history = [r.to_dict() for r in agent.runner.history]
+    report = mapper.map_findings(findings_dicts, target=agent.target, tool_history=tool_history)
+    layer = mapper.generate_navigator_layer(report)
+    return jsonify(layer)
+
+
+@app.route("/api/attack/tactics")
+def api_attack_tactics():
+    """List all ATT&CK tactics."""
+    from hackbot.core.attack import AttackMapper
+    return jsonify(AttackMapper.list_tactics())
+
+
+@app.route("/api/attack/techniques")
+def api_attack_techniques():
+    """List ATT&CK techniques, optionally filtered by tactic."""
+    tactic_id = request.args.get("tactic_id", "")
+    from hackbot.core.attack import AttackMapper
+    return jsonify(AttackMapper.list_techniques(tactic_id))
+
+
+@app.route("/api/attack/technique/<technique_id>")
+def api_attack_technique(technique_id):
+    """Get a specific ATT&CK technique by ID."""
+    from hackbot.core.attack import AttackMapper
+    tech = AttackMapper.get_technique(technique_id.upper())
+    if not tech:
+        return jsonify({"error": f"Technique not found: {technique_id}"}), 404
+    return jsonify(tech)
+
+
+@app.route("/api/attack/tool/<tool_name>")
+def api_attack_tool(tool_name):
+    """Get ATT&CK techniques mapped to a tool."""
+    from hackbot.core.attack import AttackMapper
+    techs = AttackMapper.get_tool_techniques(tool_name)
+    return jsonify(techs)
+
+
 # ── Diff Report Routes ───────────────────────────────────────────────────────
 
 @app.route("/api/diff/sessions")

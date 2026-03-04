@@ -715,6 +715,20 @@ Explain your reasoning at each step."""
             except Exception:
                 pass
 
+        # Build ATT&CK mapping data
+        attack_data = None
+        if findings_data:
+            try:
+                from hackbot.core.attack import AttackMapper
+                amapper = AttackMapper()
+                areport = amapper.map_findings(
+                    findings_data, target=self.target, tool_history=tool_history,
+                )
+                if areport.mappings:
+                    attack_data = areport.to_dict()
+            except Exception:
+                pass
+
         try:
             gen = PDFReportGenerator(include_raw=True)
             path = gen.generate(
@@ -725,6 +739,7 @@ Explain your reasoning at each step."""
                 summary="",
                 start_time=self.steps[0].timestamp if self.steps else 0,
                 compliance_data=compliance_data,
+                attack_data=attack_data,
             )
 
             step = AgentStep(

@@ -21,6 +21,7 @@ from hackbot.core.cve import CVELookup
 from hackbot.core.compliance import ComplianceMapper
 from hackbot.core.osint import OSINTEngine
 from hackbot.core.vulndb import VulnDB
+from hackbot.core.attack import AttackMapper
 from hackbot.modes.agent import AgentMode
 from hackbot.reporting import ReportGenerator
 
@@ -379,6 +380,99 @@ async def cmd_compliance(bot: "HackBotTelegram", update: Update, context: Contex
             await update.message.reply_text(format_html(chunk), parse_mode=ParseMode.HTML)
     except Exception as e:
         await update.message.reply_text(f"❌ Compliance error: {e}")
+
+
+async def cmd_attack(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /attack — MITRE ATT&CK mapping."""
+    session = bot._get_session(update.effective_user.id)
+    args = " ".join(context.args) if context.args else ""
+    parts = args.split(maxsplit=1)
+    subcmd = parts[0].lower() if parts else "map"
+    sub_args = parts[1] if len(parts) > 1 else ""
+
+    mapper = AttackMapper()
+
+    if subcmd == "map":
+        if not session.agent_mode or not session.agent_mode.findings:
+            await update.message.reply_text("No findings to map. Run an agent assessment first.")
+            return
+        findings = [f.to_dict() for f in session.agent_mode.findings]
+        tool_history = [r.to_dict() for r in session.agent_mode.runner.history]
+        loop = asyncio.get_event_loop()
+        try:
+            report = await loop.run_in_executor(
+                None, lambda: mapper.map_findings(findings, target=session.agent_mode.target, tool_history=tool_history),
+            )
+            text = mapper.format_summary(report)
+            await update.message.reply_text(format_html(text), parse_mode=ParseMode.HTML)
+        except Exception as e:
+            await update.message.reply_text(f"❌ ATT&CK mapping error: {e}")
+
+    elif subcmd == "full":
+        if not session.agent_mode or not session.agent_mode.findings:
+            await update.message.reply_text("No findings to map. Run an agent assessment first.")
+            return
+        findings = [f.to_dict() for f in session.agent_mode.findings]
+        tool_history = [r.to_dict() for r in session.agent_mode.runner.history]
+        loop = asyncio.get_event_loop()
+        try:
+            report = await loop.run_in_executor(
+                None, lambda: mapper.map_findings(findings, target=session.agent_mode.target, tool_history=tool_history),
+            )
+            text = mapper.format_report(report)
+            for chunk in split_message(text):
+                await update.message.reply_text(format_html(chunk), parse_mode=ParseMode.HTML)
+        except Exception as e:
+            await update.message.reply_text(f"❌ ATT&CK mapping error: {e}")
+
+    elif subcmd == "tactics":
+        tactics = AttackMapper.list_tactics()
+        lines = ["<b>MITRE ATT&CK Tactics</b>\n"]
+        for t in tactics:
+            lines.append(f"<code>{t['id']}</code> — {t['name']}")
+        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+
+    elif subcmd == "tool":
+        tool_name = sub_args.strip()
+        if not tool_name:
+            await update.message.reply_text("Usage: /attack tool <tool_name>")
+            return
+        techs = AttackMapper.get_tool_techniques(tool_name)
+        if not techs:
+            await update.message.reply_text(f"No ATT&CK mappings for tool: {tool_name}")
+            return
+        lines = [f"<b>ATT&CK Techniques: {format_html(tool_name)}</b>\n"]
+        for t in techs:
+            tech = t["technique"]
+            lines.append(f"<code>{tech['id']}</code> {tech['name']} ({t['confidence']})")
+        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+
+    elif subcmd == "lookup":
+        tech_id = sub_args.strip().upper()
+        if not tech_id:
+            await update.message.reply_text("Usage: /attack lookup <technique_id>")
+            return
+        tech = AttackMapper.get_technique(tech_id)
+        if not tech:
+            await update.message.reply_text(f"Technique not found: {tech_id}")
+            return
+        await update.message.reply_text(
+            f"<b>{tech['id']}</b> — {tech['name']}\n"
+            f"Tactics: {', '.join(tech['tactic_ids'])}\n"
+            f"URL: {tech['url']}",
+            parse_mode=ParseMode.HTML,
+        )
+
+    else:
+        await update.message.reply_text(
+            "<b>/attack</b> — MITRE ATT&CK Mapping\n\n"
+            "/attack map — Map agent findings (summary)\n"
+            "/attack full — Full ATT&CK report\n"
+            "/attack tactics — List all tactics\n"
+            "/attack tool &lt;name&gt; — Tool technique map\n"
+            "/attack lookup &lt;id&gt; — Look up technique",
+            parse_mode=ParseMode.HTML,
+        )
 
 
 # ── Settings ─────────────────────────────────────────────────────────────────

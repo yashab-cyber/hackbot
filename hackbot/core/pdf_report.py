@@ -397,6 +397,7 @@ class PDFReportGenerator:
         summary: str = "",
         start_time: float = 0,
         compliance_data: Optional[Dict[str, Any]] = None,
+        attack_data: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Generate PDF report, return file path."""
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -426,7 +427,7 @@ class PDFReportGenerator:
 
         # Table of contents
         story.append(PageBreak())
-        story.extend(self._table_of_contents(findings, tool_history, compliance_data))
+        story.extend(self._table_of_contents(findings, tool_history, compliance_data, attack_data))
 
         # Executive summary
         story.append(PageBreak())
@@ -445,6 +446,11 @@ class PDFReportGenerator:
         if compliance_data:
             story.append(PageBreak())
             story.extend(self._compliance_section(compliance_data))
+
+        # ATT&CK mapping (optional)
+        if attack_data:
+            story.append(PageBreak())
+            story.extend(self._attack_section(attack_data))
 
         # Tool execution log
         if tool_history:
@@ -529,7 +535,7 @@ class PDFReportGenerator:
 
     # ── Table of Contents ────────────────────────────────────────────────
 
-    def _table_of_contents(self, findings, tool_history, compliance_data) -> list:
+    def _table_of_contents(self, findings, tool_history, compliance_data, attack_data=None) -> list:
         s = self.styles
         elements = [Paragraph("Table of Contents", s["h1"])]
 
@@ -541,6 +547,9 @@ class PDFReportGenerator:
         idx = 4
         if compliance_data:
             sections.append(f"{idx}. Compliance Mapping")
+            idx += 1
+        if attack_data:
+            sections.append(f"{idx}. MITRE ATT&CK Mapping")
             idx += 1
         if tool_history:
             sections.append(f"{idx}. Tool Execution Log")
@@ -837,6 +846,118 @@ class PDFReportGenerator:
                     style2.append(("TEXTCOLOR", (0, ri), (0, ri), SEVERITY_COLORS["Medium"]))
                 elif status_text == "PASS":
                     style2.append(("TEXTCOLOR", (0, ri), (0, ri), _GREEN))
+
+            t2.setStyle(TableStyle(style2))
+            elements.append(t2)
+            elements.append(Spacer(1, 0.3 * cm))
+
+        return elements
+
+    # ── ATT&CK Section ───────────────────────────────────────────────────
+
+    def _attack_section(self, attack_data: Dict[str, Any]) -> list:
+        s = self.styles
+        elements = [Paragraph("MITRE ATT&CK Mapping", s["h1"])]
+
+        total_mappings = attack_data.get("total_mappings", 0)
+        unique_techs = attack_data.get("unique_techniques", 0)
+        tactics_covered = attack_data.get("tactics_covered", 0)
+        total_tactics = attack_data.get("total_tactics", 14)
+
+        if not total_mappings:
+            elements.append(Paragraph("No ATT&CK technique mappings available.", s["body_dim"]))
+            return elements
+
+        # Summary
+        elements.append(Paragraph(
+            f"<b>{unique_techs}</b> unique techniques across <b>{tactics_covered}</b>/"
+            f"<b>{total_tactics}</b> tactics ({total_mappings} total mappings)",
+            s["body"],
+        ))
+        elements.append(Spacer(1, 0.3 * cm))
+
+        # Summary table: technique count per tactic
+        by_tactic = attack_data.get("by_tactic", {})
+        header = ["Tactic", "Techniques", "High", "Medium", "Low"]
+        rows = [header]
+        for tactic_name, mappings in by_tactic.items():
+            seen_ids = set()
+            conf_counts = {"high": 0, "medium": 0, "low": 0}
+            for m in mappings:
+                tech_id = m.get("technique", {}).get("id", "")
+                if tech_id not in seen_ids:
+                    seen_ids.add(tech_id)
+                    conf = m.get("confidence", "medium")
+                    conf_counts[conf] = conf_counts.get(conf, 0) + 1
+            rows.append([
+                tactic_name,
+                str(len(seen_ids)),
+                str(conf_counts["high"]),
+                str(conf_counts["medium"]),
+                str(conf_counts["low"]),
+            ])
+
+        col_w = [5.5 * cm, 2.5 * cm, 2 * cm, 2 * cm, 2 * cm]
+        table = Table(rows, colWidths=col_w)
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), _ACCENT),
+            ("TEXTCOLOR", (0, 0), (-1, 0), _WHITE),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [_SURFACE, colors.HexColor("#1c2128")]),
+            ("TEXTCOLOR", (0, 1), (-1, -1), _TEXT),
+            ("TEXTCOLOR", (2, 1), (2, -1), SEVERITY_COLORS["Critical"]),
+            ("TEXTCOLOR", (3, 1), (3, -1), SEVERITY_COLORS["Medium"]),
+            ("TEXTCOLOR", (4, 1), (4, -1), SEVERITY_COLORS["Low"]),
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 0.5 * cm))
+
+        # Per-tactic detail
+        for tactic_name, mappings in by_tactic.items():
+            elements.append(Paragraph(tactic_name, s["h2"]))
+
+            header2 = ["Technique", "Name", "Confidence", "Source", "Source Detail"]
+            rows2 = [header2]
+            seen_ids = set()
+            for m in mappings:
+                tech = m.get("technique", {})
+                tech_id = tech.get("id", "")
+                if tech_id in seen_ids:
+                    continue
+                seen_ids.add(tech_id)
+                conf = m.get("confidence", "medium").upper()
+                source = m.get("source", "")
+                source_name = m.get("source_name", "")
+                rows2.append([tech_id, tech.get("name", ""), conf, source, source_name])
+
+            col_w2 = [2 * cm, 4.5 * cm, 2.2 * cm, 2 * cm, 4.3 * cm]
+            t2 = Table(rows2, colWidths=col_w2)
+            style2 = [
+                ("BACKGROUND", (0, 0), (-1, 0), _ACCENT),
+                ("TEXTCOLOR", (0, 0), (-1, 0), _WHITE),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [_SURFACE, colors.HexColor("#1c2128")]),
+                ("TEXTCOLOR", (0, 1), (-1, -1), _TEXT),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+            # Color confidence column
+            for ri, row in enumerate(rows2[1:], 1):
+                conf_text = row[2]
+                if conf_text == "HIGH":
+                    style2.append(("TEXTCOLOR", (2, ri), (2, ri), SEVERITY_COLORS["Critical"]))
+                elif conf_text == "MEDIUM":
+                    style2.append(("TEXTCOLOR", (2, ri), (2, ri), SEVERITY_COLORS["Medium"]))
+                elif conf_text == "LOW":
+                    style2.append(("TEXTCOLOR", (2, ri), (2, ri), SEVERITY_COLORS["Low"]))
 
             t2.setStyle(TableStyle(style2))
             elements.append(t2)
