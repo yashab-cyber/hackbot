@@ -122,6 +122,25 @@ install_security_tools() {
     echo ""
     info "Installing common security tools..."
 
+    # Check if we can use sudo (needed for system package managers)
+    if [ "$(id -u)" -ne 0 ]; then
+        if ! command -v sudo &>/dev/null; then
+            warn "sudo not found and not running as root — skipping system packages"
+            warn "Install manually: nmap nikto hydra john curl wget openssl"
+            return 0
+        fi
+        # Validate sudo access; prompt once so individual commands don't re-ask
+        info "Root privileges required for system packages (sudo)..."
+        if ! sudo -v 2>/dev/null; then
+            warn "Could not obtain sudo privileges — skipping system packages"
+            warn "Install manually or re-run as root: sudo $0 tools-only"
+            return 0
+        fi
+    else
+        # Already root — alias sudo to empty so commands work unchanged
+        sudo() { "$@"; }
+    fi
+
     if [ "$OS" = "linux" ]; then
         if command -v apt-get &>/dev/null; then
             sudo apt-get update -qq
