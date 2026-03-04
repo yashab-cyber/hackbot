@@ -4,7 +4,7 @@ REM HackBot — Windows Installer
 REM ═══════════════════════════════════════════════════════════════════════════════
 setlocal enabledelayedexpansion
 
-set VERSION=1.0.1
+set VERSION=1.1.0
 set REPO=yashab-cyber/hackbot
 
 echo.
