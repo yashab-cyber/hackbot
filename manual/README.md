@@ -24,6 +24,8 @@ Welcome to the official HackBot manual. This guide covers every feature, command
 | 8 | [Memory & Sessions](08-memory-sessions.md) | Session management, auto-save, `/continue`, summarization |
 | 9 | [Configuration](09-configuration.md) | All config options, paths, environment variables |
 | 10 | [Troubleshooting](10-troubleshooting.md) | Common issues, FAQ, tips |
+| 11 | [ATT&CK Mapping](11-attack-mapping.md) | MITRE ATT&CK technique mapping, Navigator layers, tool coverage |
+| 12 | [Vulnerability Database](12-vulnerability-database.md) | Local SQLite finding store, remediation tracking, risk trends |
 
 ---
 

@@ -10,7 +10,7 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Tests](https://img.shields.io/badge/tests-93%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-724%20passing-brightgreen.svg)]()
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yashab-cyber/hackbot/blob/main/examples/HackBot_Colab.ipynb)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/X2tgYHXYq)
 
@@ -61,6 +61,8 @@
 | 🌐 **OSINT Module** | Subdomain enumeration, DNS recon, WHOIS, email harvesting, tech stack fingerprinting |
 | 🗺️ **Network Topology Visualizer** | Interactive D3.js force-directed graph from nmap/masscan scan output |
 | 📋 **Compliance Mapping** | Auto-map findings to PCI DSS v4.0, NIST 800-53, OWASP Top 10, ISO 27001 controls |
+| 🎯 **MITRE ATT&CK Mapping** | Map findings and tool usage to ATT&CK techniques/tactics, export Navigator layer JSON |
+| 🗄️ **Vulnerability Database** | Persistent SQLite finding tracker with deduplication, risk scoring, and remediation status |
 | 🔀 **Diff Reports** | Compare two assessments — see new, fixed, and persistent vulnerabilities at a glance |
 | 🎯 **Multi-Target Campaigns** | Define a scope with multiple hosts/URLs and run coordinated assessments across all of them |
 | 🧩 **Custom Plugins** | Python plugin system — register your own scripts as agent-callable tools |
@@ -113,6 +115,8 @@ hackbot gui
 - **OSINT panel** — Run subdomain enumeration, DNS lookups, WHOIS, and tech fingerprinting
 - **Topology visualization** — Paste nmap/masscan output and see an interactive D3.js network graph
 - **Compliance panel** — Map agent findings to PCI DSS, NIST 800-53, OWASP Top 10, ISO 27001 with summary cards and per-framework tables
+- **ATT&CK panel** — Map findings to MITRE ATT&CK techniques, view per-tactic breakdown, export Navigator layer JSON
+- **Vulnerability database panel** — Browse, search, and manage persistent findings with risk scores and remediation status tracking
 - **Diff report panel** — Compare two assessments side-by-side to see new, fixed, and persistent vulnerabilities with trend analysis
 - **Campaign dashboard** — Create, manage, and monitor multi-target campaigns with progress tracking, target status, and coordinated findings
 - **Plugin manager** — Browse, reload, and execute custom plugins with argument inputs and live output
@@ -365,6 +369,8 @@ The Agent Mode is the core feature. It autonomously:
 - **Suggests OSINT recon** before active scanning
 - **Builds network topology** from scan results
 - **Maps findings to compliance frameworks** automatically after assessment
+- **Maps findings to MITRE ATT&CK** techniques and tactics
+- **Stores findings** in a persistent vulnerability database with risk scoring
 
 ```bash
 # Start directly
@@ -413,6 +419,8 @@ Phase 2: Web Application Scanning...
 | `/export` | Generate report |
 | `/pdf` | Generate professional PDF report |
 | `/diff` | Compare two assessments (diff report) |
+| `/attack` | MITRE ATT&CK technique mapping |
+| `/vulndb` | Vulnerability database management |
 | `/campaign` | Multi-target campaign management |
 | `/remediate` | Generate fix commands/patches for findings |
 | `/plugins` | List/manage/reload custom tool plugins |
@@ -627,6 +635,100 @@ Gap Analysis:
 - Top Failing: Secure Development (5), Access Control (4), Injection (3)
 ```
 
+### MITRE ATT&CK Mapping
+
+Map security findings and tool usage to MITRE ATT&CK Enterprise techniques and tactics. Generate ATT&CK Navigator layer JSON for visualization.
+
+```bash
+# Map agent findings to ATT&CK techniques
+/attack map
+
+# Short summary
+/attack summary
+
+# Export Navigator layer JSON (import into ATT&CK Navigator)
+/attack layer
+
+# List all tactics
+/attack tactics
+
+# List techniques (optionally by tactic)
+/attack techniques
+/attack techniques TA0007
+
+# Show ATT&CK techniques for a specific tool
+/attack tool nmap
+
+# Look up a technique by ID
+/attack lookup T1046
+```
+
+**Capabilities:**
+| Feature | Description |
+|---------|-------------|
+| **Finding Mapping** | 30 regex rules map finding text to ATT&CK techniques (SQLi, XSS, brute force, etc.) |
+| **Tool Mapping** | 26 security tools pre-mapped to ATT&CK techniques (nmap, nikto, sqlmap, hydra, etc.) |
+| **Navigator Layer Export** | Generate v4.5 layer JSON with confidence scoring and severity-based gradient coloring |
+| **14 Tactics** | Full Enterprise ATT&CK tactic coverage from Reconnaissance to Impact |
+| **~80 Techniques** | Curated pentesting-relevant technique subset |
+| **Confidence Scoring** | High/Medium/Low confidence with color-coded indicators |
+| **Deduplication** | Same technique from same source only mapped once |
+| **PDF Integration** | ATT&CK section auto-included in PDF reports with per-tactic breakdown tables |
+| **GUI Dashboard** | Map findings, browse tactics/techniques, export Navigator layers via REST API |
+
+**Report Output:**
+```
+📊 ATT&CK Coverage: 12 techniques, 6/14 tactics
+Tactics: Reconnaissance, Initial Access, Execution, Discovery, Credential Access, ...
+Confidence: 🔴 4 high | 🟠 6 medium | 🟡 2 low
+```
+
+### Vulnerability Database
+
+Persistent SQLite-based vulnerability tracker that stores findings across all assessments with deduplication, risk scoring, and remediation status management.
+
+```bash
+# Show database statistics
+/vulndb stats
+
+# Search findings
+/vulndb search sql injection
+
+# Filter by severity
+/vulndb severity Critical
+
+# View finding detail
+/vulndb detail 42
+
+# Update remediation status
+/vulndb status 42 in_progress "Assigned to dev team"
+
+# List assessments
+/vulndb assessments
+
+# Risk score for a target
+/vulndb risk example.com
+
+# Delete a finding
+/vulndb delete 42
+
+# Purge all data
+/vulndb purge
+```
+
+**Capabilities:**
+| Feature | Description |
+|---------|-------------|
+| **Persistent Storage** | SQLite database with WAL mode for concurrent access |
+| **Auto-Integration** | Agent mode automatically stores findings and creates assessments |
+| **Deduplication** | SHA-256 fingerprint prevents duplicate findings for the same target |
+| **Risk Scoring** | Weighted formula: Critical=10, High=7.5, Medium=5, Low=2.5, Info=0.5 |
+| **Remediation Tracking** | 5 statuses: open → in_progress → resolved / accepted / false_positive |
+| **Audit Log** | Full remediation history with timestamps and notes |
+| **Risk Snapshots** | Point-in-time risk score tracking for trend analysis |
+| **Search & Filter** | Query by text, severity, status, target, with pagination |
+| **GUI Dashboard** | Browse findings, update status, view risk scores via REST API |
+
 ### Professional PDF Reports
 
 Generate polished, paginated PDF pentest reports with charts and executive summaries.
@@ -649,7 +751,7 @@ Generate polished, paginated PDF pentest reports with charts and executive summa
 | **Donut Chart** | Proportional severity breakdown with total count |
 | **Risk Matrix** | 5×5 heat-map (severity × likelihood) with finding counts |
 | **Detailed Findings** | Per-finding: description, evidence (code blocks), recommendations |
-| **Compliance Mapping** | Auto-generated PCI DSS / NIST / OWASP / ISO control tables |
+| **Compliance Mapping** | Auto-generated PCI DSS / NIST / OWASP / ISO control tables |\n| **MITRE ATT&CK Mapping** | Per-tactic technique tables with confidence and source columns |
 | **Tool Execution Log** | Full command history with status, duration, exit codes |
 | **Page Footer** | Page numbers, confidentiality notice on every page |
 
@@ -1020,6 +1122,9 @@ hackbot --provider ollama --model whiterabbitneo
 | `/cve <query>` | CVE/exploit lookup (keyword, CVE ID, or `--nmap` for auto-mapping) |
 | `/osint <domain>` | OSINT recon (`--subs`, `--dns`, `--whois`, `--tech`, `--emails`, or full scan) |
 | `/topology [file]` | Network topology from scan output (auto-loads from agent if no args) |
+| `/compliance` | Map findings to PCI DSS, NIST, OWASP, ISO compliance frameworks |
+| `/attack` | MITRE ATT&CK technique/tactic mapping and Navigator layer export |
+| `/vulndb` | Vulnerability database — search, stats, status updates, risk scores |
 | `/proxy` | HTTP proxy / traffic capture (start, stop, traffic, filter, flags, replay, export) |
 
 ### Session & Memory Commands
@@ -1223,6 +1328,8 @@ hackbot/
 │   ├── osint.py         # OSINT recon (subdomains, DNS, WHOIS, tech stack)
 │   ├── topology.py      # Network topology parser & visualizer
 │   ├── compliance.py    # Compliance mapping (PCI DSS, NIST, OWASP, ISO)
+│   ├── attack.py        # MITRE ATT&CK mapping engine (techniques, Navigator layers)
+│   ├── vulndb.py        # Persistent vulnerability database (SQLite, risk scoring)
 │   ├── campaigns.py     # Multi-target campaign system (orchestration, reporting)
 │   ├── diff_report.py   # Assessment diff engine (new/fixed/persistent findings)
 │   ├── pdf_report.py    # Professional PDF report generator
@@ -1293,6 +1400,23 @@ hackbot/
 | `/api/proxy/clear` | POST | Clear captured traffic |
 | `/api/proxy/replay` | POST | Replay a captured request |
 | `/api/proxy/export` | GET | Export traffic as JSON or Markdown |
+| `/api/compliance/map` | POST | Map findings to compliance frameworks |
+| `/api/compliance/from-agent` | GET | Map agent findings to compliance frameworks |
+| `/api/compliance/frameworks` | GET | List available compliance frameworks |
+| `/api/compliance/controls/<fw>` | GET | Get controls for a framework |
+| `/api/attack/map` | POST | Map findings to ATT&CK techniques |
+| `/api/attack/from-agent` | GET | Map agent findings to ATT&CK techniques |
+| `/api/attack/layer` | GET | Generate ATT&CK Navigator layer JSON |
+| `/api/attack/tactics` | GET | List all ATT&CK tactics |
+| `/api/attack/techniques` | GET | List ATT&CK techniques (optional tactic filter) |
+| `/api/attack/technique/<id>` | GET | Get a specific technique by ID |
+| `/api/attack/tool/<name>` | GET | Get ATT&CK techniques for a tool |
+| `/api/vulndb/stats` | GET | Vulnerability database statistics |
+| `/api/vulndb/findings` | GET | Search/list findings |
+| `/api/vulndb/findings/<id>` | GET | Get finding detail |
+| `/api/vulndb/findings/<id>/status` | POST | Update finding status |
+| `/api/vulndb/assessments` | GET | List assessments |
+| `/api/vulndb/risk` | GET | Get risk score and history |
 
 ---
 
@@ -1309,9 +1433,11 @@ python -m pytest tests/test_modes.py -v     # Mode tests
 python -m pytest tests/test_memory.py -v    # Memory & session tests
 python -m pytest tests/test_runner.py -v    # Tool runner tests
 python -m pytest tests/test_config.py -v    # Config tests
+python -m pytest tests/test_attack.py -v   # ATT&CK mapping tests
+python -m pytest tests/test_vulndb.py -v   # Vulnerability database tests
 ```
 
-**384 tests** across 11 test files covering all modules.
+**724 tests** across 16 test files covering all modules.
 
 ---
 

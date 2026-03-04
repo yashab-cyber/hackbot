@@ -320,4 +320,4 @@ Use the **Proxy** panel — start/stop, view traffic table, filter, inspect deta
 
 ---
 
-Next: [AI Providers →](06-ai-providers.md)
+Next: [ATT&CK Mapping →](11-attack-mapping.md) · [Vulnerability Database →](12-vulnerability-database.md) · [AI Providers →](06-ai-providers.md)
