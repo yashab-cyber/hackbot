@@ -219,6 +219,7 @@ class MemoryManager:
         messages: List[Dict[str, Any]],
         target: str = "",
         findings: Optional[List[Dict[str, Any]]] = None,
+        scripts: Optional[List[Dict[str, Any]]] = None,
     ) -> Path:
         """Quick auto-save for agent mode with findings."""
         return self.save_session(
@@ -227,7 +228,7 @@ class MemoryManager:
             messages=messages,
             name=f"Agent: {target}" if target else "",
             target=target,
-            extra={"findings": findings or []},
+            extra={"findings": findings or [], "scripts": scripts or []},
         )
 
 

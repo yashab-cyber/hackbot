@@ -393,6 +393,7 @@ class PDFReportGenerator:
         target: str,
         findings: List[Dict[str, Any]],
         tool_history: Optional[List[Dict[str, Any]]] = None,
+        scripts: Optional[List[Dict[str, Any]]] = None,
         scope: str = "",
         summary: str = "",
         start_time: float = 0,
@@ -427,7 +428,7 @@ class PDFReportGenerator:
 
         # Table of contents
         story.append(PageBreak())
-        story.extend(self._table_of_contents(findings, tool_history, compliance_data, attack_data))
+        story.extend(self._table_of_contents(findings, tool_history, scripts, compliance_data, attack_data))
 
         # Executive summary
         story.append(PageBreak())
@@ -456,6 +457,11 @@ class PDFReportGenerator:
         if tool_history:
             story.append(PageBreak())
             story.extend(self._tool_log_section(tool_history))
+
+        # Generated scripts / exploits
+        if scripts:
+            story.append(PageBreak())
+            story.extend(self._scripts_section(scripts))
 
         # Build PDF
         doc.build(story, onFirstPage=self._page_footer, onLaterPages=self._page_footer)
@@ -535,7 +541,7 @@ class PDFReportGenerator:
 
     # ── Table of Contents ────────────────────────────────────────────────
 
-    def _table_of_contents(self, findings, tool_history, compliance_data, attack_data=None) -> list:
+    def _table_of_contents(self, findings, tool_history, scripts, compliance_data, attack_data=None) -> list:
         s = self.styles
         elements = [Paragraph("Table of Contents", s["h1"])]
 
@@ -553,6 +559,9 @@ class PDFReportGenerator:
             idx += 1
         if tool_history:
             sections.append(f"{idx}. Tool Execution Log")
+            idx += 1
+        if scripts:
+            sections.append(f"{idx}. Generated Scripts")
 
         for section in sections:
             elements.append(Paragraph(f"• {section}", s["toc"]))
@@ -567,6 +576,41 @@ class PDFReportGenerator:
                     f'<font color="{color}">▪ [{sev}]</font> {i}. {self._safe(f.get("title", "Untitled"))}',
                     s["body"],
                 ))
+
+        return elements
+
+    def _scripts_section(self, scripts: List[Dict[str, Any]]) -> list:
+        """Render generated scripts/exploits included in the assessment."""
+        s = self.styles
+        elements = [Paragraph("Generated Scripts", s["h1"])]
+
+        if not scripts:
+            elements.append(Paragraph("No scripts were generated.", s["body_dim"]))
+            return elements
+
+        for idx, script in enumerate(scripts[:50], 1):
+            name = self._safe(str(script.get("name", f"script_{idx}")))
+            language = self._safe(str(script.get("language", "text")))
+            desc = self._safe(str(script.get("description") or script.get("purpose") or ""))
+            path = self._safe(str(script.get("path", "")))
+            content = str(script.get("content", "") or "")
+
+            elements.append(Paragraph(f"{idx}. {name} [{language}]", s["finding_title"]))
+            if desc:
+                elements.append(Paragraph(desc, s["body"]))
+            if path:
+                elements.append(Paragraph(f"Saved to: {path}", s["body_dim"]))
+
+            snippet = content[:3000]
+            if len(content) > 3000:
+                snippet += "\n... [truncated]"
+            if snippet:
+                elements.append(Paragraph(
+                    self._safe(snippet).replace("\n", "<br/>"),
+                    s["evidence"],
+                ))
+
+            elements.append(Spacer(1, 0.25 * cm))
 
         return elements
 
@@ -972,44 +1016,65 @@ class PDFReportGenerator:
         section_idx = "5" if True else "4"  # adaptive numbering handled elsewhere
         elements = [Paragraph("Tool Execution Log", s["h1"])]
 
-        header = ["#", "Command", "Status", "Duration", "Exit"]
+        normalized = self._normalize_tool_history(tool_history)
+
+        header = ["#", "Tool", "Command", "Status", "Duration", "Exit"]
         rows = [header]
-        for i, entry in enumerate(tool_history[:100], 1):
+        for i, entry in enumerate(normalized[:100], 1):
             cmd = entry.get("command", "")
             if len(cmd) > 80:
                 cmd = cmd[:77] + "..."
+            tool = entry.get("tool", "unknown")
+            if len(tool) > 20:
+                tool = tool[:17] + "..."
             success = entry.get("success", False)
             status = "OK" if success else "FAIL"
             dur = f"{entry.get('duration', 0):.1f}s"
-            rows.append([str(i), cmd, status, dur, str(entry.get("return_code", ""))])
+            rows.append([str(i), tool, cmd, status, dur, str(entry.get("return_code", ""))])
 
-        col_w = [1 * cm, 9 * cm, 1.5 * cm, 2 * cm, 1.5 * cm]
+        col_w = [0.9 * cm, 2.1 * cm, 7.0 * cm, 1.6 * cm, 2.0 * cm, 1.5 * cm]
         table = Table(rows, colWidths=col_w)
         style = [
             ("BACKGROUND", (0, 0), (-1, 0), _ACCENT),
             ("TEXTCOLOR", (0, 0), (-1, 0), _WHITE),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("FONTNAME", (1, 1), (1, -1), "Courier"),
+            ("FONTNAME", (1, 1), (2, -1), "Courier"),
             ("TOPPADDING", (0, 0), (-1, -1), 3),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
             ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [_SURFACE, colors.HexColor("#1c2128")]),
             ("TEXTCOLOR", (0, 1), (-1, -1), _TEXT),
             ("ALIGN", (0, 0), (0, -1), "CENTER"),
-            ("ALIGN", (2, 0), (-1, -1), "CENTER"),
+            ("ALIGN", (3, 0), (-1, -1), "CENTER"),
         ]
         # Color status column
         for ri, row in enumerate(rows[1:], 1):
-            if row[2] == "FAIL":
-                style.append(("TEXTCOLOR", (2, ri), (2, ri), SEVERITY_COLORS["Critical"]))
+            if row[3] == "FAIL":
+                style.append(("TEXTCOLOR", (3, ri), (3, ri), SEVERITY_COLORS["Critical"]))
             else:
-                style.append(("TEXTCOLOR", (2, ri), (2, ri), _GREEN))
+                style.append(("TEXTCOLOR", (3, ri), (3, ri), _GREEN))
 
         table.setStyle(TableStyle(style))
         elements.append(table)
 
         return elements
+
+    @staticmethod
+    def _normalize_tool_history(tool_history: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+        """Ensure each tool execution row has explicit tool and command fields."""
+        normalized: List[Dict[str, Any]] = []
+        for entry in tool_history or []:
+            cmd = str(entry.get("command", "") or "").strip()
+            tool = str(entry.get("tool", "") or "").strip()
+            if not tool and cmd:
+                tool = cmd.split()[0]
+
+            out = dict(entry)
+            out["tool"] = tool or "unknown"
+            out["command"] = cmd or "(no command)"
+            normalized.append(out)
+        return normalized
 
     # ── Page Footer ──────────────────────────────────────────────────────
 

@@ -235,6 +235,11 @@ To report a finding:
 {"action": "finding", "title": "<title>", "severity": "<Critical|High|Medium|Low|Info>", "description": "<details>", "evidence": "<output>", "recommendation": "<fix>"}
 ```
 
+To save a generated script or exploit helper for this assessment:
+```json
+{"action": "script", "name": "<filename>", "language": "<bash|python|powershell|...>", "purpose": "<why this script exists>", "content": "<full script content>"}
+```
+
 When you are done with the assessment:
 ```json
 {"action": "complete", "summary": "<assessment_summary>"}

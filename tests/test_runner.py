@@ -183,3 +183,17 @@ def test_validate_command_with_sudo_prefix(runner):
     is_safe, reason = runner.validate_command("sudo nmap -sV target")
     assert is_safe
     assert reason == "OK"
+
+
+def test_validate_command_with_backticks_and_prompt(runner):
+    """Backticks and shell prompt prefixes should not break validation."""
+    is_safe, reason = runner.validate_command("`$ nmap -sV 127.0.0.1`")
+    assert is_safe
+    assert reason == "OK"
+
+
+def test_tool_allowed_case_insensitive():
+    """Allowed tool checks should be case-insensitive."""
+    r = ToolRunner(allowed_tools=["nmap", "curl"], timeout=10)
+    assert r.is_tool_allowed("NMAP")
+    assert r.is_tool_allowed("nmap")

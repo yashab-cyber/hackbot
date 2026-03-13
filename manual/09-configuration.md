@@ -52,14 +52,19 @@ Created automatically on first run with sensible defaults.
 | `safe_mode` | bool | `true` | Prevent destructive/aggressive operations |
 | `sudo_password` | string | `""` | `SUDO_PASSWORD` | Password for non-interactive sudo (avoids TTY hangs) |
 | `nvd_api_key` | string | `""` | `NVD_API_KEY` | NVD API key for faster CVE lookups (50 req/30s vs 5) |
-| `allowed_tools` | list | 26 tools | Whitelist of tools the agent can use |
+| `allowed_tools` | list | 56 tools | Whitelist of tools the agent can use |
 
-### Allowed Tools (Default 26)
+### Allowed Tools (Default 56)
 
 ```
 nmap, nikto, gobuster, sqlmap, wfuzz, ffuf, nuclei, subfinder, httpx,
-amass, whatweb, dirb, hydra, john, hashcat, curl, wget, dig, whois,
-traceroute, ping, netcat, openssl, testssl, sslscan, masscan
+amass, masscan, feroxbuster, dnsrecon, dnsenum, whatweb, dirb, searchsploit,
+msfconsole, msfvenom, hydra, john, hashcat, wifite, aircrack-ng, airodump-ng,
+aireplay-ng, airbase-ng, reaver, wash, hcxdumptool, hcxpcapngtool, bettercap,
+ettercap, responder, nxc, crackmapexec, smbclient, enum4linux, enum4linux-ng,
+ldapsearch, nbtscan, onesixtyone, snmpwalk, curl, wget, tcpdump, tshark, dig,
+whois, traceroute, ping, fping, arp-scan, netdiscover, netcat, openssl,
+testssl, sslscan, thc-ipv6
 ```
 
 ### Reporting Settings (`reporting` section)

@@ -1312,11 +1312,13 @@ class HackBotApp:
 
         findings = [f.to_dict() for f in self.agent.findings]
         tool_history = [r.to_dict() for r in self.agent.runner.history]
+        scripts = [s.to_dict() for s in self.agent.scripts]
 
         path = reporter.generate(
             target=self.agent.target,
             findings=findings,
             tool_history=tool_history,
+            scripts=scripts,
             scope=self.agent.scope,
             start_time=self._start_time,
         )
@@ -1335,6 +1337,7 @@ class HackBotApp:
 
         findings = [f.to_dict() for f in self.agent.findings]
         tool_history = [r.to_dict() for r in self.agent.runner.history]
+        scripts = [s.to_dict() for s in self.agent.scripts]
 
         # Build compliance data if findings exist
         compliance_data = None
@@ -1367,6 +1370,7 @@ class HackBotApp:
             target=self.agent.target,
             findings=findings,
             tool_history=tool_history,
+            scripts=scripts,
             scope=self.agent.scope,
             summary="",
             start_time=self._start_time,

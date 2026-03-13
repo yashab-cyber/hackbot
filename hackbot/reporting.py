@@ -146,6 +146,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <h2>Tool Execution Log</h2>
 {% for entry in tool_history %}
 <div class="tool-entry">
+  <div><strong>Tool:</strong> <span class="tool-cmd">{{ entry.tool }}</span></div>
   <span class="tool-cmd">$ {{ entry.command }}</span>
   <span class="tool-status {{ 'success' if entry.success else 'failed' }}">
     {{ '✓' if entry.success else '✗' }}
@@ -157,6 +158,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <pre><code>{{ entry.stdout[:2000] }}</code></pre>
   </details>
   {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+{% if scripts %}
+<h2>Generated Scripts</h2>
+{% for script in scripts %}
+<div class="tool-entry">
+  <div><strong>Name:</strong> <span class="tool-cmd">{{ script.name }}</span></div>
+  <div><strong>Language:</strong> <span class="tool-cmd">{{ script.language }}</span></div>
+  {% if script.path %}<div><strong>Saved To:</strong> {{ script.path }}</div>{% endif %}
+  {% if script.description %}<p>{{ script.description }}</p>{% endif %}
+  <pre><code>{{ script.content[:4000] }}</code></pre>
 </div>
 {% endfor %}
 {% endif %}
@@ -182,22 +196,23 @@ class ReportGenerator:
         target: str,
         findings: List[Dict[str, Any]],
         tool_history: List[Dict[str, Any]] = None,
+        scripts: List[Dict[str, Any]] = None,
         scope: str = "",
         summary: str = "",
         start_time: float = 0,
     ) -> str:
         """Generate a report and return the file path."""
         if self.report_format == "html":
-            return self._generate_html(target, findings, tool_history, scope, summary, start_time)
+            return self._generate_html(target, findings, tool_history, scripts, scope, summary, start_time)
         elif self.report_format == "markdown":
-            return self._generate_markdown(target, findings, tool_history, scope, summary, start_time)
+            return self._generate_markdown(target, findings, tool_history, scripts, scope, summary, start_time)
         elif self.report_format == "json":
-            return self._generate_json(target, findings, tool_history, scope, summary, start_time)
+            return self._generate_json(target, findings, tool_history, scripts, scope, summary, start_time)
         else:
-            return self._generate_html(target, findings, tool_history, scope, summary, start_time)
+            return self._generate_html(target, findings, tool_history, scripts, scope, summary, start_time)
 
     def _generate_html(
-        self, target, findings, tool_history, scope, summary, start_time
+        self, target, findings, tool_history, scripts, scope, summary, start_time
     ) -> str:
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         ts = time.strftime("%Y%m%d_%H%M%S")
@@ -214,6 +229,8 @@ class ReportGenerator:
             duration = f"{mins:.0f} minutes"
 
         template = Template(HTML_TEMPLATE)
+        normalized_tool_history = self._normalize_tool_history(tool_history)
+        normalized_scripts = self._normalize_scripts(scripts)
         html = template.render(
             target=target,
             date=time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -223,7 +240,8 @@ class ReportGenerator:
             total_findings=len(findings),
             summary=summary,
             findings=findings,
-            tool_history=tool_history or [],
+            tool_history=normalized_tool_history,
+            scripts=normalized_scripts,
             include_raw=self.include_raw,
         )
 
@@ -233,7 +251,7 @@ class ReportGenerator:
         return str(path)
 
     def _generate_markdown(
-        self, target, findings, tool_history, scope, summary, start_time
+        self, target, findings, tool_history, scripts, scope, summary, start_time
     ) -> str:
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         ts = time.strftime("%Y%m%d_%H%M%S")
@@ -264,14 +282,35 @@ class ReportGenerator:
                 lines.extend(["", f"**Recommendation:** {f['recommendation']}"])
             lines.append("")
 
-        if tool_history:
+        normalized_tool_history = self._normalize_tool_history(tool_history)
+
+        if normalized_tool_history:
             lines.extend(["## Tool Execution Log", ""])
-            for entry in tool_history:
+            for entry in normalized_tool_history:
                 status = "✓" if entry.get("success") else "✗"
                 lines.append(
-                    f"- {status} `{entry.get('command', '')}` "
+                    f"- {status} [{entry.get('tool', 'unknown')}] `{entry.get('command', '(no command)')}` "
                     f"(exit={entry.get('return_code', '')}, {entry.get('duration', 0)}s)"
                 )
+
+        normalized_scripts = self._normalize_scripts(scripts)
+        if normalized_scripts:
+            lines.extend(["", "## Generated Scripts", ""])
+            for i, script in enumerate(normalized_scripts, 1):
+                lines.append(
+                    f"### {i}. {script.get('name', 'generated_script')} "
+                    f"[{script.get('language', 'text')}]"
+                )
+                if script.get("description"):
+                    lines.append(script.get("description", ""))
+                if script.get("path"):
+                    lines.append(f"Saved to: `{script.get('path')}`")
+                lines.extend([
+                    f"```{script.get('language', 'text')}",
+                    script.get("content", ""),
+                    "```",
+                    "",
+                ])
 
         lines.extend(["", "---", f"*Generated by HackBot AI Cybersecurity Assistant*"])
 
@@ -282,7 +321,7 @@ class ReportGenerator:
         return str(path)
 
     def _generate_json(
-        self, target, findings, tool_history, scope, summary, start_time
+        self, target, findings, tool_history, scripts, scope, summary, start_time
     ) -> str:
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         ts = time.strftime("%Y%m%d_%H%M%S")
@@ -294,10 +333,41 @@ class ReportGenerator:
             "scope": scope,
             "summary": summary,
             "findings": findings,
-            "tool_history": tool_history or [],
+            "tool_history": self._normalize_tool_history(tool_history),
+            "scripts": self._normalize_scripts(scripts),
         }
 
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
         return str(path)
+
+    @staticmethod
+    def _normalize_tool_history(tool_history: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+        """Ensure each tool log entry has explicit tool and command values for reporting."""
+        normalized: List[Dict[str, Any]] = []
+        for entry in tool_history or []:
+            cmd = str(entry.get("command", "") or "").strip()
+            tool = str(entry.get("tool", "") or "").strip()
+            if not tool and cmd:
+                tool = cmd.split()[0]
+
+            out = dict(entry)
+            out["tool"] = tool or "unknown"
+            out["command"] = cmd or "(no command)"
+            normalized.append(out)
+        return normalized
+
+    @staticmethod
+    def _normalize_scripts(scripts: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+        """Normalize generated script entries for report rendering."""
+        normalized: List[Dict[str, Any]] = []
+        for script in scripts or []:
+            out = dict(script)
+            out["name"] = str(out.get("name", "generated_script") or "generated_script").strip()
+            out["language"] = str(out.get("language", "text") or "text").strip()
+            out["content"] = str(out.get("content", "") or "")
+            out["description"] = str(out.get("description") or out.get("purpose") or "")
+            out["path"] = str(out.get("path", "") or "")
+            normalized.append(out)
+        return normalized

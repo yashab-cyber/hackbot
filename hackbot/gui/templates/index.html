@@ -258,6 +258,9 @@ textarea#userInput::placeholder{color:var(--text-dim)}
       <button class="nav-btn" data-panel="findings" onclick="switchPanel('findings')">
         <span class="icon">🔍</span><span>Findings</span>
       </button>
+      <button class="nav-btn" data-panel="scripts" onclick="switchPanel('scripts')">
+        <span class="icon">📜</span><span>Scripts</span>
+      </button>
       <button class="nav-btn" data-panel="sessions" onclick="switchPanel('sessions')">
         <span class="icon">💾</span><span>Sessions</span>
       </button>
@@ -286,6 +289,7 @@ textarea#userInput::placeholder{color:var(--text-dim)}
     </div>
     <div style="font-size:.7rem;color:var(--text-dim);line-height:1.4">
       Developed by <a href="https://github.com/yashab-cyber" target="_blank" style="color:var(--primary);text-decoration:none">Yashab Alam</a><br>
+      <a href="https://hackbot.co.in" target="_blank" style="color:var(--green);text-decoration:none;margin-right:6px" title="HackBot Website">🌐 Website</a>
       <a href="https://www.linkedin.com/in/yashab-alam" target="_blank" style="color:var(--text-dim);text-decoration:none;margin-right:6px" title="LinkedIn">💼 LinkedIn</a>
       <a href="mailto:yashabalam707@gmail.com" style="color:var(--text-dim);text-decoration:none;margin-right:6px" title="Email">📧 Email</a>
       <a href="https://github.com/yashab-cyber/hackbot/blob/main/DONATE.md" target="_blank" style="color:#e06c75;text-decoration:none;margin-right:6px" title="Support HackBot">❤️ Donate</a>
@@ -441,6 +445,19 @@ textarea#userInput::placeholder{color:var(--text-dim)}
     </div>
     <div style="flex:1;overflow-y:auto;padding:24px" id="findingsList">
       <p style="color:var(--text-dim)">No findings yet. Run an agent assessment first.</p>
+    </div>
+  </div>
+
+  <!-- ── Scripts Panel ─────────────────────────────────────────────────── -->
+  <div class="panel" id="panel-scripts">
+    <div class="header">
+      <div class="header-title">📜 Generated Scripts</div>
+      <div class="header-actions">
+        <button class="btn btn-sm" onclick="loadScripts()">🔄 Refresh</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:24px" id="scriptsList">
+      <p style="color:var(--text-dim)">No scripts yet. Run an agent assessment and use script actions.</p>
     </div>
   </div>
 
@@ -728,6 +745,7 @@ textarea#userInput::placeholder{color:var(--text-dim)}
     <div class="header">
       <div class="header-title">🧩 Custom Plugins</div>
       <div class="header-actions">
+        <a class="btn btn-sm" href="https://hackbot.co.oin/marketplace" target="_blank" rel="noopener">🛒 Marketplace</a>
         <button class="btn btn-sm" onclick="reloadPlugins()">🔄 Reload</button>
         <button class="btn btn-sm" onclick="showPluginDir()">📁 Plugin Dir</button>
       </div>
@@ -919,6 +937,7 @@ function switchPanel(name) {
 
   if (name === 'tools') loadTools();
   if (name === 'findings') loadFindings();
+  if (name === 'scripts') loadScripts();
   if (name === 'settings') loadSettings();
   if (name === 'sessions') loadSessions();
   if (name === 'proxy') loadProxyStatus();
@@ -1327,6 +1346,40 @@ async function loadFindings() {
     container.innerHTML = html;
   } catch (e) {
     container.innerHTML = `<p style="color:var(--red)">Failed to load findings: ${e.message}</p>`;
+  }
+}
+
+// ── Scripts ─────────────────────────────────────────────────────────────────
+async function loadScripts() {
+  const container = document.getElementById('scriptsList');
+  try {
+    const resp = await fetch('/api/agent/scripts');
+    const data = await resp.json();
+
+    if (!data.scripts || data.scripts.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-dim)">No scripts generated yet.</p>';
+      return;
+    }
+
+    let html = `<p style="margin-bottom:16px"><strong>${data.count || data.scripts.length}</strong> scripts | Target: <strong>${escapeHtml(data.target || 'n/a')}</strong></p>`;
+
+    for (const s of data.scripts) {
+      html += `
+        <div class="finding-card">
+          <div class="finding-header">
+            <span class="severity-badge severity-Low">${escapeHtml((s.language || 'script').toUpperCase())}</span>
+            <strong>${escapeHtml(s.name || 'generated_script')}</strong>
+          </div>
+          ${s.purpose ? `<p>${escapeHtml(s.purpose)}</p>` : ''}
+          ${s.path ? `<div style="color:var(--text-dim);font-size:.85rem;margin:6px 0"><strong>Saved:</strong> ${escapeHtml(s.path)}</div>` : ''}
+          <pre><code>${escapeHtml(s.content || '')}</code></pre>
+          ${s.created_at ? `<div style="color:var(--text-dim);font-size:.8rem;margin-top:8px">Created: ${escapeHtml(s.created_at)}</div>` : ''}
+        </div>
+      `;
+    }
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = `<p style="color:var(--red)">Failed to load scripts: ${escapeHtml(e.message)}</p>`;
   }
 }
 

@@ -144,19 +144,59 @@ class ToolRunner:
         self.history: List[ToolResult] = []
         self._sudo_validated = False
 
+    def _normalize_command(self, command: str) -> str:
+        """Normalize AI-generated command text into an executable command string."""
+        cmd = (command or "").strip()
+        if not cmd:
+            return ""
+
+        # Accept fenced snippets by extracting the first non-fence line.
+        if cmd.startswith("```"):
+            lines = [ln.strip() for ln in cmd.splitlines()]
+            body = [ln for ln in lines if ln and not ln.startswith("```")]
+            if body:
+                cmd = body[0]
+
+        # Strip shell prompt prefixes commonly emitted by LLMs.
+        if cmd.startswith("$ "):
+            cmd = cmd[2:].strip()
+
+        # Strip surrounding inline backticks.
+        if len(cmd) >= 2 and cmd[0] == "`" and cmd[-1] == "`":
+            cmd = cmd[1:-1].strip()
+
+        return cmd
+
+    def _infer_tool_name(self, command: str, tool_name: str = "") -> str:
+        """Resolve a stable tool label for result reporting."""
+        if tool_name:
+            return tool_name
+        parts = command.split()
+        return parts[0] if parts else "unknown"
+
     def is_tool_available(self, tool: str) -> bool:
         """Check if a tool is installed on the system."""
         return shutil.which(tool) is not None
 
     def is_tool_allowed(self, tool: str) -> bool:
         """Check if a tool is in the allowed list."""
-        return tool in self.allowed_tools
+        normalized = os.path.basename(tool).lower()
+        if normalized.endswith(".exe"):
+            normalized = normalized[:-4]
+
+        allowed = {
+            os.path.basename(t).lower()[:-4] if os.path.basename(t).lower().endswith(".exe")
+            else os.path.basename(t).lower()
+            for t in self.allowed_tools
+        }
+        return normalized in allowed
 
     def validate_command(self, command: str) -> tuple[bool, str]:
         """
         Validate a command for safety.
         Returns (is_safe, reason).
         """
+        command = self._normalize_command(command)
         cmd_lower = command.lower().strip()
 
         # Plugin commands are always allowed
@@ -265,6 +305,8 @@ class ToolRunner:
         """
         Execute a command synchronously with timeout and output capture.
         """
+        command = self._normalize_command(command)
+
         # Plugin execution — intercept hackbot-plugin commands
         if command.strip().startswith("hackbot-plugin "):
             return self._execute_plugin(command, tool_name)
@@ -277,7 +319,7 @@ class ToolRunner:
 
         if not is_safe:
             return ToolResult(
-                tool=tool_name or command.split()[0],
+                tool=self._infer_tool_name(command, tool_name),
                 command=command,
                 stdout="",
                 stderr=f"BLOCKED: {reason}",
@@ -292,7 +334,7 @@ class ToolRunner:
                 confirmed = self.on_confirm(command, reason)
                 if not confirmed:
                     return ToolResult(
-                        tool=tool_name or command.split()[0],
+                        tool=self._infer_tool_name(command, tool_name),
                         command=command,
                         stdout="",
                         stderr="User declined execution",
@@ -333,7 +375,7 @@ class ToolRunner:
                 truncated = True
 
             result = ToolResult(
-                tool=tool_name or command.split()[0],
+                tool=self._infer_tool_name(command, tool_name),
                 command=command,
                 stdout=stdout,
                 stderr=stderr,
@@ -346,10 +388,10 @@ class ToolRunner:
         except FileNotFoundError:
             duration = time.time() - start
             result = ToolResult(
-                tool=tool_name or command.split()[0],
+                tool=self._infer_tool_name(command, tool_name),
                 command=command,
                 stdout="",
-                stderr=f"Tool not found: {command.split()[0]}",
+                stderr=f"Tool not found: {self._infer_tool_name(command, tool_name)}",
                 return_code=-3,
                 duration=duration,
                 success=False,
@@ -357,7 +399,7 @@ class ToolRunner:
         except Exception as e:
             duration = time.time() - start
             result = ToolResult(
-                tool=tool_name or command.split()[0],
+                tool=self._infer_tool_name(command, tool_name),
                 command=command,
                 stdout="",
                 stderr=f"Execution error: {str(e)}",
@@ -377,13 +419,15 @@ class ToolRunner:
 
     async def execute_async(self, command: str, tool_name: str = "") -> ToolResult:
         """Execute a command asynchronously."""
+        command = self._normalize_command(command)
+
         # Apply sudo prefix if enabled
         command = self._apply_sudo(command)
 
         is_safe, reason = self.validate_command(command)
         if not is_safe:
             return ToolResult(
-                tool=tool_name or command.split()[0],
+                tool=self._infer_tool_name(command, tool_name),
                 command=command,
                 stdout="",
                 stderr=f"BLOCKED: {reason}",
@@ -417,7 +461,7 @@ class ToolRunner:
             duration = time.time() - start
 
             result = ToolResult(
-                tool=tool_name or command.split()[0],
+                tool=self._infer_tool_name(command, tool_name),
                 command=command,
                 stdout=stdout,
                 stderr=stderr,
@@ -428,7 +472,7 @@ class ToolRunner:
         except Exception as e:
             duration = time.time() - start
             result = ToolResult(
-                tool=tool_name or command.split()[0],
+                tool=self._infer_tool_name(command, tool_name),
                 command=command,
                 stdout="",
                 stderr=f"Execution error: {str(e)}",

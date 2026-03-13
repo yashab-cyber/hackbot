@@ -157,6 +157,7 @@ async def cmd_help(bot: "HackBotTelegram", update: Update, context: ContextTypes
         "/model &lt;name&gt; — Switch AI model\n"
         "/provider &lt;name&gt; — Switch AI provider\n"
         "/language &lt;lang&gt; — Set response language\n"
+        "/tools [installed|missing|all] — Show tool availability\n"
         "/config — Show current config\n\n"
         "<b>Session:</b>\n"
         "/reset — Reset conversation\n"
@@ -568,6 +569,10 @@ async def cmd_language(bot: "HackBotTelegram", update: Update, context: ContextT
 async def cmd_config(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     preset = PROVIDERS.get(bot.config.ai.provider, {})
     provider_name = preset.get("name", bot.config.ai.provider)
+    tools = detect_tools(bot.config.agent.allowed_tools)
+    installed = sum(1 for v in tools.values() if v)
+    total = len(tools)
+    sample_tools = ", ".join(bot.config.agent.allowed_tools[:10])
     text = (
         f"⚙️ <b>HackBot Configuration</b>\n\n"
         f"<b>Provider:</b> {provider_name}\n"
@@ -577,8 +582,42 @@ async def cmd_config(bot: "HackBotTelegram", update: Update, context: ContextTyp
         f"<b>Safe Mode:</b> {'✅' if bot.config.agent.safe_mode else '❌'}\n"
         f"<b>Max Steps:</b> {bot.config.agent.max_steps}\n"
         f"<b>Temperature:</b> {bot.config.ai.temperature}\n"
+        f"<b>Allowed Tools:</b> {installed}/{total} installed\n"
+        f"<b>Tool Sample:</b> <code>{sample_tools}</code>\n"
     )
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
+
+async def cmd_tools(bot: "HackBotTelegram", update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /tools — show installed/missing tools from allowed list."""
+    view = " ".join(context.args).strip().lower() if context.args else "installed"
+    if view not in ("installed", "missing", "all"):
+        await update.message.reply_text(
+            "Usage: /tools [installed|missing|all]",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    tools = detect_tools(bot.config.agent.allowed_tools)
+    installed = [name for name, path in tools.items() if path]
+    missing = [name for name, path in tools.items() if not path]
+
+    if view == "installed":
+        lines = [f"🧰 <b>Installed Tools</b> ({len(installed)}/{len(tools)})\n"]
+        lines.extend(f"✅ <code>{name}</code>" for name in installed)
+    elif view == "missing":
+        lines = [f"🧰 <b>Missing Tools</b> ({len(missing)}/{len(tools)})\n"]
+        lines.extend(f"❌ <code>{name}</code>" for name in missing)
+    else:
+        lines = [f"🧰 <b>Tool Inventory</b> ({len(installed)}/{len(tools)} installed)\n"]
+        lines.append("<b>Installed:</b>")
+        lines.extend(f"✅ <code>{name}</code>" for name in installed)
+        lines.append("\n<b>Missing:</b>")
+        lines.extend(f"❌ <code>{name}</code>" for name in missing)
+
+    text = "\n".join(lines)
+    for chunk in split_message(text):
+        await update.message.reply_text(chunk, parse_mode=ParseMode.HTML)
 
 
 # ── Session management ───────────────────────────────────────────────────────
@@ -616,14 +655,15 @@ async def cmd_export(bot: "HackBotTelegram", update: Update, context: ContextTyp
         return
 
     findings = [f.to_dict() for f in session.agent_mode.findings]
-    tools_used = [s.tool_result.to_dict() for s in session.agent_mode.steps
-                  if s.tool_result] if session.agent_mode.steps else []
+    tool_history = [r.to_dict() for r in session.agent_mode.runner.history]
+    scripts = [s.to_dict() for s in session.agent_mode.scripts]
 
     reporter = ReportGenerator(report_format="markdown")
     report = reporter.generate(
         target=session.agent_mode.target,
         findings=findings,
-        tools_used=tools_used,
+        tool_history=tool_history,
+        scripts=scripts,
     )
 
     buf = io.BytesIO(report.encode("utf-8"))

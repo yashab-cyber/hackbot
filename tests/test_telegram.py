@@ -313,6 +313,16 @@ class TestHackBotTelegram:
         assert app is not None
         assert bot._app is app
 
+    def test_tools_command_registered(self, config):
+        from hackbot.integrations.telegram_bot import HackBotTelegram, _TG_AVAILABLE
+        if not _TG_AVAILABLE:
+            pytest.skip("python-telegram-bot not installed")
+        bot = HackBotTelegram(config, token="fake:token")
+        app = bot.build_app()
+        cmd_handlers = [h for h in app.handlers.get(0, []) if hasattr(h, "commands")]
+        commands = {cmd for h in cmd_handlers for cmd in getattr(h, "commands", [])}
+        assert "tools" in commands
+
     def test_default_token_applied(self, config):
         """When no explicit token is given, the built-in default is used."""
         from hackbot.integrations.telegram_bot import HackBotTelegram, _TG_AVAILABLE
@@ -365,3 +375,17 @@ class TestCLIIntegration:
             pytest.skip("CLI dependencies not installed")
         # Check that telegram is in the group commands
         assert "telegram" in main.commands
+
+
+def test_report_generator_accepts_tool_history_kwarg():
+    """Regression: Telegram export should pass tool_history, not tools_used."""
+    from hackbot.reporting import ReportGenerator
+    with tempfile.TemporaryDirectory() as td:
+        with patch("hackbot.reporting.REPORTS_DIR", Path(td)):
+            rg = ReportGenerator(report_format="json")
+            path = rg.generate(
+                target="example.com",
+                findings=[],
+                tool_history=[{"tool": "nmap", "command": "nmap -sV example.com", "success": True}],
+            )
+            assert path.endswith(".json")

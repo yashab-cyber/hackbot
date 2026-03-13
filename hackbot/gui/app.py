@@ -590,10 +590,25 @@ def api_agent_findings():
 
     return jsonify({
         "findings": [f.to_dict() for f in agent.findings],
+        "scripts": [s.to_dict() for s in agent.scripts],
         "summary": agent.get_findings_summary(),
         "steps": len(agent.steps),
         "target": agent.target,
         "is_running": agent.is_running,
+    })
+
+
+@app.route("/api/agent/scripts")
+def api_agent_scripts():
+    """Get generated scripts for the current assessment."""
+    agent: Optional[AgentMode] = _state["agent"]
+    if not agent:
+        return jsonify({"scripts": [], "target": "", "count": 0})
+
+    return jsonify({
+        "scripts": [s.to_dict() for s in agent.scripts],
+        "target": agent.target,
+        "count": len(agent.scripts),
     })
 
 
@@ -892,11 +907,13 @@ def api_agent_export():
     )
     findings = [f.to_dict() for f in agent.findings]
     tool_history = [r.to_dict() for r in agent.runner.history]
+    scripts = [s.to_dict() for s in agent.scripts]
 
     path = reporter.generate(
         target=agent.target,
         findings=findings,
         tool_history=tool_history,
+        scripts=scripts,
         scope=agent.scope,
     )
     return jsonify({"ok": True, "path": path})
@@ -914,6 +931,7 @@ def api_agent_export_pdf():
 
     findings = [f.to_dict() for f in agent.findings]
     tool_history = [r.to_dict() for r in agent.runner.history]
+    scripts = [s.to_dict() for s in agent.scripts]
 
     # Auto-generate compliance data
     compliance_data = None
@@ -932,6 +950,7 @@ def api_agent_export_pdf():
         target=agent.target,
         findings=findings,
         tool_history=tool_history,
+        scripts=scripts,
         scope=agent.scope,
         compliance_data=compliance_data,
     )

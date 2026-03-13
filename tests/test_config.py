@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+import yaml
 
 from hackbot.config import (
     HackBotConfig,
@@ -13,6 +14,7 @@ from hackbot.config import (
     detect_platform,
     detect_tools,
     _deep_merge,
+    _merge_allowed_tools,
     load_config,
 )
 
@@ -44,6 +46,9 @@ def test_agent_config_defaults():
     assert "nmap" in cfg.allowed_tools
     assert "nikto" in cfg.allowed_tools
     assert "sqlmap" in cfg.allowed_tools
+    assert "msfconsole" in cfg.allowed_tools
+    assert "wifite" in cfg.allowed_tools
+    assert "aircrack-ng" in cfg.allowed_tools
     assert cfg.timeout == 300
     assert cfg.nvd_api_key == ""
     assert cfg.sudo_password == ""
@@ -84,3 +89,35 @@ def test_env_var_override(monkeypatch):
     cfg = load_config()
     assert cfg.ai.api_key == "test-env-key"
     assert cfg.ai.model == "gpt-4"
+
+
+def test_merge_allowed_tools_appends_new_defaults():
+    current = ["nmap", "custom-tool", "NIKTO"]
+    defaults = ["nmap", "nikto", "msfconsole"]
+    merged = _merge_allowed_tools(current, defaults)
+
+    assert merged[0] == "nmap"
+    assert merged[1] == "custom-tool"
+    assert any(t.lower() == "nikto" for t in merged)
+    assert "msfconsole" in merged
+
+
+def test_load_config_migrates_allowed_tools_from_old_file(tmp_path, monkeypatch):
+    cfg_file = tmp_path / "config.yaml"
+    cfg_file.write_text(
+        yaml.dump({
+            "agent": {
+                "allowed_tools": ["nmap", "nikto"],
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr("hackbot.config.CONFIG_FILE", cfg_file)
+    cfg = load_config()
+
+    assert "nmap" in cfg.agent.allowed_tools
+    assert "nikto" in cfg.agent.allowed_tools
+    assert "msfconsole" in cfg.agent.allowed_tools
+    assert "wifite" in cfg.agent.allowed_tools
+    assert "aircrack-ng" in cfg.agent.allowed_tools

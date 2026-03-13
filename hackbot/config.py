@@ -55,8 +55,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "nvd_api_key": "",
         "allowed_tools": [
             "nmap",
+            "masscan",
             "nikto",
             "gobuster",
+            "feroxbuster",
             "sqlmap",
             "wfuzz",
             "ffuf",
@@ -64,22 +66,53 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "subfinder",
             "httpx",
             "amass",
+            "dnsrecon",
+            "dnsenum",
             "whatweb",
             "dirb",
+            "searchsploit",
+            "msfconsole",
+            "msfvenom",
             "hydra",
             "john",
             "hashcat",
+            "wifite",
+            "aircrack-ng",
+            "airodump-ng",
+            "aireplay-ng",
+            "airbase-ng",
+            "reaver",
+            "wash",
+            "hcxdumptool",
+            "hcxpcapngtool",
+            "bettercap",
+            "ettercap",
+            "responder",
+            "nxc",
+            "crackmapexec",
+            "smbclient",
+            "enum4linux",
+            "enum4linux-ng",
+            "ldapsearch",
+            "nbtscan",
+            "onesixtyone",
+            "snmpwalk",
             "curl",
             "wget",
+            "tcpdump",
+            "tshark",
             "dig",
             "whois",
             "traceroute",
             "ping",
+            "fping",
+            "arp-scan",
+            "netdiscover",
             "netcat",
             "openssl",
             "testssl",
             "sslscan",
-            "masscan",
+            "thc-ipv6",
         ],
     },
     "reporting": {
@@ -228,6 +261,13 @@ def load_config() -> HackBotConfig:
     if os.environ.get("NVD_API_KEY"):
         merged.setdefault("agent", {})["nvd_api_key"] = os.environ["NVD_API_KEY"]
 
+    # Backward-compatible tool migration: keep user tools and append newly
+    # introduced default tools so existing configs can use new capabilities.
+    merged.setdefault("agent", {})["allowed_tools"] = _merge_allowed_tools(
+        merged.get("agent", {}).get("allowed_tools", []),
+        DEFAULT_CONFIG["agent"]["allowed_tools"],
+    )
+
     cfg = HackBotConfig(
         ai=AIConfig(**merged.get("ai", {})),
         agent=AgentConfig(**merged.get("agent", {})),
@@ -289,6 +329,32 @@ def _deep_merge(base: dict, override: dict) -> dict:
         else:
             result[k] = v
     return result
+
+
+def _merge_allowed_tools(current: List[str], defaults: List[str]) -> List[str]:
+    """Merge allowlists while preserving user order and appending new defaults."""
+    merged: List[str] = []
+    seen: set[str] = set()
+
+    for tool in current or []:
+        name = str(tool).strip()
+        if not name:
+            continue
+        key = name.lower()
+        if key not in seen:
+            seen.add(key)
+            merged.append(name)
+
+    for tool in defaults or []:
+        name = str(tool).strip()
+        if not name:
+            continue
+        key = name.lower()
+        if key not in seen:
+            seen.add(key)
+            merged.append(name)
+
+    return merged
 
 
 # ── tool detection ───────────────────────────────────────────────────────────

@@ -182,6 +182,7 @@ class HackBotTelegram:
         app.add_handler(CommandHandler("provider", auth(_bind(h.cmd_provider))))
         app.add_handler(CommandHandler("language", auth(_bind(h.cmd_language))))
         app.add_handler(CommandHandler("lang", auth(_bind(h.cmd_language))))
+        app.add_handler(CommandHandler("tools", auth(_bind(h.cmd_tools))))
         app.add_handler(CommandHandler("config", auth(_bind(h.cmd_config))))
         app.add_handler(CommandHandler("reset", auth(_bind(h.cmd_reset))))
         app.add_handler(CommandHandler("logout", _bind(h.cmd_logout)))
