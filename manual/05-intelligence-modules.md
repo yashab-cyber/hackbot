@@ -183,52 +183,44 @@ Use the **Campaigns** panel — create campaigns, manage targets, track progress
 
 ---
 
-## 🧩 Custom Plugins
+## Custom Plugins
 
 Extend HackBot with your own Python tools.
 
-### Plugin Directory
-```
-~/.local/share/hackbot/plugins/
-```
+Plugin files are loaded from the user config plugins directory. On Linux this is:
 
-### Creating a Plugin
-
-Create a `.py` file in the plugins directory:
-
-```python
-"""
-HackBot Plugin: My Custom Scanner
-"""
-
-PLUGIN_MANIFEST = {
-    "name": "my_scanner",
-    "description": "Runs a custom security scan",
-    "version": "1.0",
-    "category": "scanning",
-    "args": [
-        {"name": "target", "description": "Target to scan", "required": True},
-        {"name": "port", "description": "Port to scan", "required": False, "default": "80"},
-    ],
-}
-
-def run(target, port="80"):
-    """Execute the plugin."""
-    # Your code here
-    return f"Scanned {target}:{port} — no issues found"
+```text
+~/.config/hackbot/plugins/
 ```
 
-### CLI Usage
-```
-/plugins                  # List all registered plugins
-/plugins reload           # Rediscover plugins from disk
-/plugins dir              # Show plugins directory path
+You can always print the active path with:
+
+```text
+/plugins dir
 ```
 
-Plugins appear as agent-callable tools and can also be executed directly from the GUI.
+Supported registration methods:
 
-### GUI
-Use the **Plugins** panel — view, reload, and execute plugins.
+1. `@hackbot_plugin(...)` decorator on a callable.
+2. `register()` function that returns a `PluginDefinition`.
+
+Plugin runtime command format:
+
+```text
+hackbot-plugin <name> --arg1 value1 --arg2 value2
+```
+
+CLI management commands:
+
+```text
+/plugins
+/plugins reload
+/plugins dir
+```
+
+For complete step-by-step plugin authoring instructions, examples, and troubleshooting, see:
+
+[Plugin Creation Guide ->](14-plugin-creation.md)
 
 ---
 

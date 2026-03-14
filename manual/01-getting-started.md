@@ -146,7 +146,7 @@ HackBot stores its data in platform-appropriate directories:
 | Sessions | `~/.local/share/hackbot/sessions/` |
 | Reports | `~/.local/share/hackbot/reports/` |
 | Logs | `~/.local/share/hackbot/logs/` |
-| Plugins | `~/.local/share/hackbot/plugins/` |
+| Plugins | `~/.config/hackbot/plugins/` |
 | Campaigns | `~/.local/share/hackbot/campaigns/` |
 
 ---

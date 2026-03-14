@@ -161,7 +161,7 @@ ui:
 | Sessions | `~/.local/share/hackbot/sessions/` |
 | Reports | `~/.local/share/hackbot/reports/` |
 | Logs | `~/.local/share/hackbot/logs/` |
-| Plugins | `~/.local/share/hackbot/plugins/` |
+| Plugins | `~/.config/hackbot/plugins/` |
 | Campaigns | `~/.local/share/hackbot/campaigns/` |
 
 Paths follow the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html) via the `platformdirs` library.

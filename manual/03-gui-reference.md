@@ -284,7 +284,7 @@ Manage custom tool plugins.
 |---------|----------|
 | Plugin list | Name, description, version, category, args |
 | Reload button | Rediscover plugins from disk |
-| Plugin directory | Shows path to `~/.local/share/hackbot/plugins/` |
+| Plugin directory | Shows path to `~/.config/hackbot/plugins/` |
 | Errors section | Shows any plugin load errors |
 
 ---
