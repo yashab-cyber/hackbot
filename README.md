@@ -160,6 +160,31 @@ hackbot gui
 
 ## 📦 Installation
 
+### Which install method should I use?
+
+- Use One-Line Install if you want a quick setup on Linux/macOS and may also want bundled security tooling.
+- Use pip if you work inside a project or virtual environment and want full control of dependencies.
+- Use pipx if you want HackBot installed globally but isolated from your system Python packages.
+- Use From Source if you are developing HackBot itself.
+
+### Create a Python Virtual Environment (recommended for pip installs)
+
+```bash
+# Linux/macOS
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Upgrade packaging tools inside the venv
+python -m pip install --upgrade pip setuptools wheel
+```
+
+```powershell
+# Windows (PowerShell)
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip setuptools wheel
+```
+
 ### One-Line Install (Linux/macOS)
 
 ```bash
@@ -220,53 +245,6 @@ docker run -it -e HACKBOT_API_KEY=your-key hackbot
 
 ---
 
-## � Reinstall
-
-### One-Line Install (Linux/macOS)
-
-```bash
-# Reinstall via the same installer script (overwrites previous install)
-curl -sSL https://raw.githubusercontent.com/yashab-cyber/hackbot/main/install.sh | bash
-```
-
-### pip
-
-```bash
-pip install --force-reinstall "hackbot[all] @ git+https://github.com/yashab-cyber/hackbot.git"
-```
-
-### pipx
-
-```bash
-pipx reinstall hackbot
-```
-
-### From Source (Development)
-
-```bash
-cd hackbot
-pip install -e ".[all,dev]" --force-reinstall
-```
-
-### Windows
-
-```powershell
-# Option 1: pip
-pip install --force-reinstall "hackbot[all] @ git+https://github.com/yashab-cyber/hackbot.git"
-
-# Option 2: From local source
-cd hackbot
-install.bat
-```
-
-### Docker
-
-```bash
-docker build --no-cache -t hackbot .
-```
-
----
-
 ## 🗑️ Uninstall
 
 ### pip
@@ -313,6 +291,68 @@ rm -rf ~/.config/hackbot
 
 # Windows (PowerShell)
 Remove-Item -Recurse -Force "$env:APPDATA\hackbot"
+```
+
+---
+
+## 🔁 Reinstall
+
+Always uninstall first using the matching method above, then reinstall.
+
+### One-Line Install (Linux/macOS)
+
+```bash
+# If you previously used pip/pipx, uninstall first via the Uninstall section.
+# Then reinstall via the installer script.
+curl -sSL https://raw.githubusercontent.com/yashab-cyber/hackbot/main/install.sh | bash
+```
+
+### pip
+
+```bash
+# Step 1: uninstall
+pip uninstall -y hackbot
+
+# Step 2: reinstall
+pip install "hackbot[all] @ git+https://github.com/yashab-cyber/hackbot.git"
+```
+
+### pipx
+
+```bash
+# Step 1: uninstall
+pipx uninstall hackbot
+
+# Step 2: reinstall
+pipx install "hackbot[all] @ git+https://github.com/yashab-cyber/hackbot.git"
+```
+
+### From Source (Development)
+
+```bash
+cd hackbot
+pip uninstall -y hackbot
+pip install -e ".[all,dev]"
+```
+
+### Windows
+
+```powershell
+# Option 1: pip
+pip uninstall -y hackbot
+pip install "hackbot[all] @ git+https://github.com/yashab-cyber/hackbot.git"
+
+# Option 2: From local source
+cd hackbot
+install.bat
+```
+
+### Docker
+
+```bash
+docker rm $(docker ps -aq --filter ancestor=hackbot)
+docker rmi hackbot
+docker build --no-cache -t hackbot .
 ```
 
 ---

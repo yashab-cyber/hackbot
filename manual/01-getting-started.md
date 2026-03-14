@@ -2,6 +2,29 @@
 
 ## Installation
 
+### Choose the Right Install Method
+
+- Use One-Line Installer for the fastest setup on Linux/macOS.
+- Use pip when working inside a project virtual environment.
+- Use pipx when you want a global but isolated CLI install.
+- Use From Source when developing HackBot.
+
+### Create a Python Virtual Environment (recommended for pip)
+
+**Linux / macOS:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+```
+
+**Windows (PowerShell):**
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip setuptools wheel
+```
+
 ### One-Line Installer (Recommended)
 
 **Linux / macOS:**
@@ -25,6 +48,16 @@ pip install "hackbot[gui] @ git+https://github.com/yashab-cyber/hackbot.git"
 
 # Everything (CLI + GUI + PDF reports + all optional deps)
 pip install "hackbot[all] @ git+https://github.com/yashab-cyber/hackbot.git"
+```
+
+### pipx Install (Isolated Global CLI)
+
+```bash
+# CLI only
+pipx install "hackbot @ git+https://github.com/yashab-cyber/hackbot.git"
+
+# Everything (CLI + GUI + PDF reports + all optional deps)
+pipx install "hackbot[all] @ git+https://github.com/yashab-cyber/hackbot.git"
 ```
 
 ### From Source (Developer Mode)
