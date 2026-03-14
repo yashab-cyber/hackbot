@@ -6,7 +6,7 @@
 
 **Production-ready AI-powered pentesting & cybersecurity assistant with Agent, Chat & Planning modes, native desktop GUI, 10 AI providers, and built-in intelligence modules.**
 
-[![CI](https://github.com/yashab-cyber/hackbot/actions/workflows/ci.yml/badge.svg)](https://github.com/yashab-cyber/hackbot/actions)
+[![Website](https://img.shields.io/badge/Website-hackbot.co.in-00c853?logo=google-chrome&logoColor=white)](https://hackbot.co.in)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
@@ -15,6 +15,8 @@
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/X2tgYHXYq)
 
 [Features](#-features) • [Screenshots](#-screenshots) • [GUI](#%EF%B8%8F-native-desktop-gui) • [Install](#-installation) • [Quick Start](#-quick-start) • [Modes](#-modes) • [Intelligence](#%EF%B8%8F-intelligence-modules) • [Providers](#-ai-providers) • [Config](#%EF%B8%8F-configuration) • [Docker](#-docker) • [Colab](#-run-on-google-colab) • [Discord](#-community)
+
+[Website](https://hackbot.co.in) • [Plugin Marketplace](https://hackbot.co.in/marketplace)
 
 </div>
 
@@ -869,6 +871,10 @@ Auto-generate actionable fix commands, configuration patches, and code snippets 
 ## 🧩 Custom Plugins
 
 HackBot supports a Python plugin system that lets you register your own scripts as agent-callable tools. The AI agent can invoke your plugins during assessments just like built-in tools.
+
+Official links:
+- Website: https://hackbot.co.in
+- Plugin Marketplace (upload/download custom plugins): https://hackbot.co.in/marketplace
 
 ### Plugin Directory
 
