@@ -185,6 +185,20 @@ def test_validate_command_with_sudo_prefix(runner):
     assert reason == "OK"
 
 
+def test_validate_command_with_sudo_flag_prefix(runner):
+    """sudo flags like -n should not be treated as the executable."""
+    is_safe, reason = runner.validate_command("sudo -n nmap -sV target")
+    assert is_safe
+    assert reason == "OK"
+
+
+def test_validate_command_with_sudo_end_of_options(runner):
+    """sudo '--' end-of-options marker should still resolve the real tool."""
+    is_safe, reason = runner.validate_command("sudo -- nmap -sV target")
+    assert is_safe
+    assert reason == "OK"
+
+
 def test_validate_command_with_backticks_and_prompt(runner):
     """Backticks and shell prompt prefixes should not break validation."""
     is_safe, reason = runner.validate_command("`$ nmap -sV 127.0.0.1`")

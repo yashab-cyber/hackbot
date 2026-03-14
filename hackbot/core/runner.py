@@ -191,6 +191,51 @@ class ToolRunner:
         }
         return normalized in allowed
 
+    def _extract_validated_tool(self, parts: List[str]) -> str:
+        """Extract the real executable name from parsed command parts.
+
+        Handles sudo-prefixed commands with sudo options (for example
+        ``sudo -n nmap ...``) so validation checks the intended tool rather
+        than a sudo flag token.
+        """
+        if not parts:
+            return ""
+
+        first = os.path.basename(parts[0])
+        if first != "sudo":
+            return first
+
+        # sudo options that consume a following argument token
+        takes_arg = {
+            "-A", "-a", "-C", "-c", "-g", "-h", "-p", "-R", "-r", "-t", "-U", "-u",
+            "--askpass", "--chdir", "--close-from", "--group", "--host", "--prompt",
+            "--chroot", "--role", "--type", "--other-user", "--user",
+        }
+
+        idx = 1
+        while idx < len(parts):
+            token = parts[idx]
+
+            # End of sudo options; next token should be the real command.
+            if token == "--":
+                idx += 1
+                break
+
+            # Still parsing sudo options.
+            if token.startswith("-"):
+                if token in takes_arg:
+                    idx += 2
+                else:
+                    idx += 1
+                continue
+
+            break
+
+        if idx >= len(parts):
+            return ""
+
+        return os.path.basename(parts[idx])
+
     def validate_command(self, command: str) -> tuple[bool, str]:
         """
         Validate a command for safety.
@@ -213,9 +258,9 @@ class ToolRunner:
         if not parts:
             return False, "Empty command"
 
-        tool = os.path.basename(parts[0])
-        if tool == "sudo" and len(parts) > 1:
-            tool = os.path.basename(parts[1])
+        tool = self._extract_validated_tool(parts)
+        if not tool:
+            return False, "Empty command"
 
         # Check if tool is allowed
         if not self.is_tool_allowed(tool):
