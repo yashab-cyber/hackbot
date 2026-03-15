@@ -39,13 +39,21 @@ def test_markdown_report_contains_tool_and_command(tmp_path):
         path = rg.generate(
             target="example.com",
             findings=SAMPLE_FINDINGS,
-            tool_history=[{"command": "nmap -sV example.com", "success": True, "duration": 1.2, "return_code": 0}],
+            tool_history=[{
+                "command": "sudo nmap -sV example.com",
+                "success": True,
+                "duration": 1.2,
+                "return_code": 0,
+                "stdout": "scan output",
+            }],
         )
 
         text = Path(path).read_text(encoding="utf-8")
-        assert "## Tool Execution Log" in text
+        assert "## 4. List of Commands Executed" in text
+        assert "## 5. Technical Annex (Agent Output)" in text
         assert "[nmap]" in text
-        assert "nmap -sV example.com" in text
+        assert "sudo nmap -sV example.com" in text
+        assert "sudo=yes" in text
 
 
 def test_json_report_contains_normalized_tool_history(tmp_path):
@@ -60,3 +68,5 @@ def test_json_report_contains_normalized_tool_history(tmp_path):
         data = json.loads(Path(path).read_text(encoding="utf-8"))
         assert data["tool_history"][0]["tool"] == "curl"
         assert data["tool_history"][0]["command"] == "curl -I https://example.com"
+        assert "commands_executed" in data
+        assert "technical_annex" in data

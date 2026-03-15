@@ -105,6 +105,17 @@ HackBot includes a full native desktop GUI — no browser needed. Launch it with
 hackbot gui
 ```
 
+If GUI falls back to browser mode with errors like `No module named qtpy` or
+`No module named gi`, install one native backend:
+
+```bash
+# Option A (venv-friendly Qt backend)
+pip install PyQt5 qtpy
+
+# Option B (GTK backend on Debian/Kali/Ubuntu)
+sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1
+```
+
 ### GUI Features
 
 - **Dark cybersecurity theme** with a polished, modern interface

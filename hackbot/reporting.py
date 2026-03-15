@@ -143,23 +143,31 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 {% endfor %}
 
 {% if tool_history %}
-<h2>Tool Execution Log</h2>
+<h2>4. List of Commands Executed</h2>
 {% for entry in tool_history %}
 <div class="tool-entry">
-  <div><strong>Tool:</strong> <span class="tool-cmd">{{ entry.tool }}</span></div>
+  <div><strong>#{{ loop.index }} Tool:</strong> <span class="tool-cmd">{{ entry.tool }}</span></div>
+  <div><strong>Sudo:</strong> {{ 'Yes' if entry.sudo_used else 'No' }}</div>
   <span class="tool-cmd">$ {{ entry.command }}</span>
   <span class="tool-status {{ 'success' if entry.success else 'failed' }}">
     {{ '✓' if entry.success else '✗' }}
   </span>
   <span style="color: var(--text-dim);">({{ entry.duration }}s, exit={{ entry.return_code }})</span>
-  {% if entry.stdout and include_raw %}
-  <details>
-    <summary style="cursor: pointer; color: var(--accent); margin-top: 0.5rem;">Output</summary>
-    <pre><code>{{ entry.stdout[:2000] }}</code></pre>
-  </details>
-  {% endif %}
 </div>
 {% endfor %}
+
+<h2>5. Technical Annex (Agent Output)</h2>
+{% if include_raw %}
+{% for entry in tool_history %}
+<div class="tool-entry">
+  <div><strong>#{{ loop.index }} {{ entry.tool }}</strong></div>
+  <div class="tool-cmd">$ {{ entry.command }}</div>
+  <pre><code>{{ entry.annex_output[:8000] }}</code></pre>
+</div>
+{% endfor %}
+{% else %}
+<p>Raw output export is disabled by configuration (`include_raw_output: false`).</p>
+{% endif %}
 {% endif %}
 
 {% if scripts %}
@@ -285,13 +293,28 @@ class ReportGenerator:
         normalized_tool_history = self._normalize_tool_history(tool_history)
 
         if normalized_tool_history:
-            lines.extend(["## Tool Execution Log", ""])
+            lines.extend(["## 4. List of Commands Executed", ""])
             for entry in normalized_tool_history:
                 status = "✓" if entry.get("success") else "✗"
                 lines.append(
                     f"- {status} [{entry.get('tool', 'unknown')}] `{entry.get('command', '(no command)')}` "
-                    f"(exit={entry.get('return_code', '')}, {entry.get('duration', 0)}s)"
+                    f"(sudo={'yes' if entry.get('sudo_used') else 'no'}, "
+                    f"exit={entry.get('return_code', '')}, {entry.get('duration', 0)}s)"
                 )
+
+            lines.extend(["", "## 5. Technical Annex (Agent Output)", ""])
+            if self.include_raw:
+                for i, entry in enumerate(normalized_tool_history, 1):
+                    lines.extend([
+                        f"### {i}. {entry.get('tool', 'unknown')}",
+                        f"Command: `{entry.get('command', '(no command)')}`",
+                        "```",
+                        str(entry.get("annex_output", ""))[:8000],
+                        "```",
+                        "",
+                    ])
+            else:
+                lines.append("Raw output export is disabled by configuration (`include_raw_output: false`).")
 
         normalized_scripts = self._normalize_scripts(scripts)
         if normalized_scripts:
@@ -327,13 +350,36 @@ class ReportGenerator:
         ts = time.strftime("%Y%m%d_%H%M%S")
         path = REPORTS_DIR / f"report_{target.replace('/', '_').replace(':', '_')}_{ts}.json"
 
+        normalized_tool_history = self._normalize_tool_history(tool_history)
+
         data = {
             "target": target,
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "scope": scope,
             "summary": summary,
             "findings": findings,
-            "tool_history": self._normalize_tool_history(tool_history),
+            "tool_history": normalized_tool_history,
+            "commands_executed": [
+                {
+                    "index": i + 1,
+                    "tool": e.get("tool", "unknown"),
+                    "command": e.get("command", "(no command)"),
+                    "sudo_used": bool(e.get("sudo_used", False)),
+                    "success": bool(e.get("success", False)),
+                    "return_code": e.get("return_code", ""),
+                    "duration": e.get("duration", 0),
+                }
+                for i, e in enumerate(normalized_tool_history)
+            ],
+            "technical_annex": [
+                {
+                    "index": i + 1,
+                    "tool": e.get("tool", "unknown"),
+                    "command": e.get("command", "(no command)"),
+                    "output": str(e.get("annex_output", "")) if self.include_raw else "",
+                }
+                for i, e in enumerate(normalized_tool_history)
+            ],
             "scripts": self._normalize_scripts(scripts),
         }
 
@@ -355,6 +401,18 @@ class ReportGenerator:
             out = dict(entry)
             out["tool"] = tool or "unknown"
             out["command"] = cmd or "(no command)"
+            out["sudo_used"] = out["command"].startswith("sudo ")
+
+            stdout = str(out.get("stdout", "") or "")
+            stderr = str(out.get("stderr", "") or "")
+            if stdout and stderr:
+                out["annex_output"] = f"{stdout}\n\n[STDERR]\n{stderr}"
+            elif stdout:
+                out["annex_output"] = stdout
+            elif stderr:
+                out["annex_output"] = f"[STDERR]\n{stderr}"
+            else:
+                out["annex_output"] = "(no output)"
             normalized.append(out)
         return normalized
 

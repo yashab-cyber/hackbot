@@ -246,12 +246,14 @@ class TestPDFReportGenerator:
     def test_tool_history_normalization(self):
         gen = PDFReportGenerator()
         rows = gen._normalize_tool_history([
-            {"command": "nmap -sV example.com", "success": True},
+            {"command": "sudo nmap -sV example.com", "success": True, "stdout": "ok"},
             {"tool": "nikto", "command": "", "success": False},
             {},
         ])
         assert rows[0]["tool"] == "nmap"
-        assert rows[0]["command"] == "nmap -sV example.com"
+        assert rows[0]["command"] == "sudo nmap -sV example.com"
+        assert rows[0]["sudo_used"] is True
+        assert rows[0]["annex_output"] == "ok"
         assert rows[1]["tool"] == "nikto"
         assert rows[1]["command"] == "(no command)"
         assert rows[2]["tool"] == "unknown"

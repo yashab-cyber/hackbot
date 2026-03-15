@@ -13,6 +13,7 @@ from hackbot.config import (
     AgentConfig,
     detect_platform,
     detect_tools,
+    resolve_tool_path,
     _deep_merge,
     _merge_allowed_tools,
     load_config,
@@ -80,6 +81,37 @@ def test_detect_tools():
     tools = detect_tools(["python3", "nonexistent_tool_xyz"])
     assert tools.get("python3") is not None or tools.get("python3") is None
     assert tools.get("nonexistent_tool_xyz") is None
+
+
+def test_resolve_tool_path_thc_ipv6_alias(monkeypatch):
+    """thc-ipv6 should resolve via Kali-style alias binaries (e.g., alive6)."""
+    real_which = __import__("shutil").which
+
+    def fake_which(name):
+        if name == "alive6":
+            return "/usr/bin/alive6"
+        if name == "thc-ipv6":
+            return None
+        return real_which(name)
+
+    monkeypatch.setattr("hackbot.config.shutil.which", fake_which)
+    assert resolve_tool_path("thc-ipv6") == "/usr/bin/alive6"
+
+
+def test_detect_tools_thc_ipv6_alias(monkeypatch):
+    """detect_tools should mark thc-ipv6 installed when an alias binary exists."""
+    real_which = __import__("shutil").which
+
+    def fake_which(name):
+        if name == "alive6":
+            return "/usr/bin/alive6"
+        if name == "thc-ipv6":
+            return None
+        return real_which(name)
+
+    monkeypatch.setattr("hackbot.config.shutil.which", fake_which)
+    tools = detect_tools(["thc-ipv6"])
+    assert tools["thc-ipv6"] == "/usr/bin/alive6"
 
 
 def test_env_var_override(monkeypatch):

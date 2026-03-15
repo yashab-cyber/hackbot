@@ -145,6 +145,25 @@ hackbot --no-safe-mode
 
 ### GUI doesn't launch
 
+If you start HackBot GUI with `sudo`, desktop GUI backends (pywebview/GTK/WebKit)
+often cannot access your user display/session.
+
+Use this pattern instead:
+
+```bash
+# 1) Cache sudo credentials (optional, for privileged scans later)
+sudo -v
+
+# 2) Launch GUI as normal user (not sudo)
+hackbot gui
+```
+
+If you need elevated tool execution in agent mode, keep GUI non-root and enable
+HackBot sudo mode (`hackbot --sudo` or Settings -> sudo mode).
+
+Do not use `sudo -v hackbot gui`.
+Use `sudo -v && hackbot gui`.
+
 ```bash
 # Check dependencies
 pip install flask pywebview
@@ -155,6 +174,39 @@ hackbot gui --host 127.0.0.1 --port 8080
 # Check if port is in use
 lsof -i :1337
 ```
+
+### GUI fallback shows "QT cannot be loaded" / "No module named qtpy"
+
+Install Qt backend inside your virtual environment:
+
+```bash
+pip install PyQt5 qtpy
+```
+
+Then retry:
+
+```bash
+hackbot gui
+```
+
+### GUI fallback shows "GTK cannot be loaded" / "No module named gi"
+
+Install GTK Python bindings from system packages (Debian/Kali/Ubuntu):
+
+```bash
+sudo apt update
+sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1
+```
+
+Important: `gi` is usually a system Python module. If HackBot runs inside a venv,
+your venv may not see `gi` unless it was created with system site packages:
+
+```bash
+python3 -m venv --system-site-packages hackbot
+source hackbot/bin/activate
+```
+
+Alternative: use the Qt backend (`pip install PyQt5 qtpy`) instead of GTK in venv.
 
 ### GUI shows "Loading..." forever
 

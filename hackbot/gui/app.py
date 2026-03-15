@@ -1936,7 +1936,13 @@ def launch_gui(config: HackBotConfig, host: str = "127.0.0.1", port: int = 1337)
 
     # Fallback: run in browser
     print(f"\n  ⚡ HackBot GUI running at {url}")
-    print(f"  (Install 'pywebview' for a native desktop window)")
+    print(f"  Native desktop backend is missing (Qt/GTK Python bindings).")
+    print(f"  Install one backend for native desktop mode:")
+    print(f"    Option A (venv-friendly): pip install PyQt5 qtpy")
+    print(f"    Option B (system GTK, Debian/Kali):")
+    print(f"      sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1")
+    print(f"  If using a venv with GTK, recreate it with --system-site-packages.")
+    print(f"  (Browser mode works without these packages.)")
     print(f"  Press Ctrl+C to stop\n")
 
     def open_browser():

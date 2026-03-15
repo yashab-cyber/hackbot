@@ -369,10 +369,55 @@ def detect_platform() -> Dict[str, str]:
     }
 
 
+# Logical tool names that may map to one of multiple concrete binaries.
+TOOL_ALIASES: Dict[str, List[str]] = {
+    # Kali/Debian package `thc-ipv6` usually installs tools like `alive6`,
+    # not a single `thc-ipv6` executable.
+    "thc-ipv6": [
+        "thc-ipv6",
+        "alive6",
+        "address6",
+        "detect-new-ip6",
+        "dnsdict6",
+        "dnsrevenum6",
+        "fake_advertise6",
+        "fake_dns6d",
+        "flood_advertise6",
+        "flood_dhcpc6",
+        "flood_mld6",
+        "flood_mld26",
+        "flood_mldrouter6",
+        "flood_redir6",
+        "flood_router6",
+        "flood_rs6",
+        "flood_solicitate6",
+        "implementation6",
+        "ndpexhaust26",
+        "parasite6",
+        "randicmp6",
+        "redir6",
+        "smurf6",
+    ],
+}
+
+
+def resolve_tool_path(tool: str) -> Optional[str]:
+    """Resolve a logical tool name to an installed executable path.
+
+    Returns the first executable path found for the given tool (including
+    aliases), otherwise None.
+    """
+    candidates = TOOL_ALIASES.get(tool.lower(), [tool])
+    for candidate in candidates:
+        path = shutil.which(candidate)
+        if path:
+            return path
+    return None
+
+
 def detect_tools(allowed: List[str]) -> Dict[str, Optional[str]]:
     """Detect which security tools are installed."""
     found: Dict[str, Optional[str]] = {}
     for tool in allowed:
-        path = shutil.which(tool)
-        found[tool] = path
+        found[tool] = resolve_tool_path(tool)
     return found

@@ -211,3 +211,16 @@ def test_tool_allowed_case_insensitive():
     r = ToolRunner(allowed_tools=["nmap", "curl"], timeout=10)
     assert r.is_tool_allowed("NMAP")
     assert r.is_tool_allowed("nmap")
+
+
+def test_tool_allowed_via_resolved_alias(monkeypatch):
+    """Alias binary (alive6) should be allowed when thc-ipv6 is whitelisted."""
+    r = ToolRunner(allowed_tools=["thc-ipv6"], timeout=10)
+
+    def fake_resolve(tool: str):
+        if tool == "thc-ipv6":
+            return "/usr/bin/alive6"
+        return None
+
+    monkeypatch.setattr("hackbot.core.runner.resolve_tool_path", fake_resolve)
+    assert r.is_tool_allowed("alive6")

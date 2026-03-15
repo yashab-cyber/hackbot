@@ -443,6 +443,13 @@ class PDFReportGenerator:
         story.append(PageBreak())
         story.extend(self._findings_section(findings))
 
+        # 4. Commands executed / 5. Technical annex
+        if tool_history:
+            story.append(PageBreak())
+            story.extend(self._tool_log_section(tool_history))
+            story.append(PageBreak())
+            story.extend(self._technical_annex_section(tool_history))
+
         # Compliance mapping (optional)
         if compliance_data:
             story.append(PageBreak())
@@ -452,11 +459,6 @@ class PDFReportGenerator:
         if attack_data:
             story.append(PageBreak())
             story.extend(self._attack_section(attack_data))
-
-        # Tool execution log
-        if tool_history:
-            story.append(PageBreak())
-            story.extend(self._tool_log_section(tool_history))
 
         # Generated scripts / exploits
         if scripts:
@@ -550,15 +552,16 @@ class PDFReportGenerator:
             "2. Risk Assessment Charts",
             "3. Detailed Findings",
         ]
-        idx = 4
+        if tool_history:
+            sections.append("4. List of Commands Executed")
+            sections.append("5. Technical Annex (Agent Output)")
+
+        idx = 6
         if compliance_data:
             sections.append(f"{idx}. Compliance Mapping")
             idx += 1
         if attack_data:
             sections.append(f"{idx}. MITRE ATT&CK Mapping")
-            idx += 1
-        if tool_history:
-            sections.append(f"{idx}. Tool Execution Log")
             idx += 1
         if scripts:
             sections.append(f"{idx}. Generated Scripts")
@@ -811,7 +814,7 @@ class PDFReportGenerator:
 
     def _compliance_section(self, compliance_data: Dict[str, Any]) -> list:
         s = self.styles
-        elements = [Paragraph("4. Compliance Mapping", s["h1"])]
+        elements = [Paragraph("Compliance Mapping", s["h1"])]
 
         summary_data = compliance_data.get("summary", {})
         if not summary_data:
@@ -1013,50 +1016,82 @@ class PDFReportGenerator:
 
     def _tool_log_section(self, tool_history: List[Dict[str, Any]]) -> list:
         s = self.styles
-        section_idx = "5" if True else "4"  # adaptive numbering handled elsewhere
-        elements = [Paragraph("Tool Execution Log", s["h1"])]
+        elements = [Paragraph("4. List of Commands Executed", s["h1"])]
 
         normalized = self._normalize_tool_history(tool_history)
 
-        header = ["#", "Tool", "Command", "Status", "Duration", "Exit"]
+        header = ["#", "Tool", "Sudo", "Command", "Status", "Duration", "Exit"]
         rows = [header]
         for i, entry in enumerate(normalized[:100], 1):
             cmd = entry.get("command", "")
-            if len(cmd) > 80:
-                cmd = cmd[:77] + "..."
+            if len(cmd) > 70:
+                cmd = cmd[:67] + "..."
             tool = entry.get("tool", "unknown")
             if len(tool) > 20:
                 tool = tool[:17] + "..."
             success = entry.get("success", False)
             status = "OK" if success else "FAIL"
             dur = f"{entry.get('duration', 0):.1f}s"
-            rows.append([str(i), tool, cmd, status, dur, str(entry.get("return_code", ""))])
+            sudo = "Yes" if entry.get("sudo_used", False) else "No"
+            rows.append([str(i), tool, sudo, cmd, status, dur, str(entry.get("return_code", ""))])
 
-        col_w = [0.9 * cm, 2.1 * cm, 7.0 * cm, 1.6 * cm, 2.0 * cm, 1.5 * cm]
+        col_w = [0.8 * cm, 1.8 * cm, 1.4 * cm, 6.0 * cm, 1.5 * cm, 1.8 * cm, 1.4 * cm]
         table = Table(rows, colWidths=col_w)
         style = [
             ("BACKGROUND", (0, 0), (-1, 0), _ACCENT),
             ("TEXTCOLOR", (0, 0), (-1, 0), _WHITE),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("FONTNAME", (1, 1), (2, -1), "Courier"),
+            ("FONTNAME", (1, 1), (3, -1), "Courier"),
             ("TOPPADDING", (0, 0), (-1, -1), 3),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
             ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [_SURFACE, colors.HexColor("#1c2128")]),
             ("TEXTCOLOR", (0, 1), (-1, -1), _TEXT),
             ("ALIGN", (0, 0), (0, -1), "CENTER"),
-            ("ALIGN", (3, 0), (-1, -1), "CENTER"),
+            ("ALIGN", (2, 0), (2, -1), "CENTER"),
+            ("ALIGN", (4, 0), (-1, -1), "CENTER"),
         ]
         # Color status column
         for ri, row in enumerate(rows[1:], 1):
-            if row[3] == "FAIL":
-                style.append(("TEXTCOLOR", (3, ri), (3, ri), SEVERITY_COLORS["Critical"]))
+            if row[4] == "FAIL":
+                style.append(("TEXTCOLOR", (4, ri), (4, ri), SEVERITY_COLORS["Critical"]))
             else:
-                style.append(("TEXTCOLOR", (3, ri), (3, ri), _GREEN))
+                style.append(("TEXTCOLOR", (4, ri), (4, ri), _GREEN))
 
         table.setStyle(TableStyle(style))
         elements.append(table)
+
+        return elements
+
+    def _technical_annex_section(self, tool_history: List[Dict[str, Any]]) -> list:
+        """Render technical annex with agent/tool output for each command."""
+        s = self.styles
+        elements = [Paragraph("5. Technical Annex (Agent Output)", s["h1"])]
+
+        normalized = self._normalize_tool_history(tool_history)
+        if not normalized:
+            elements.append(Paragraph("No tool output available.", s["body_dim"]))
+            return elements
+
+        if not self.include_raw:
+            elements.append(Paragraph(
+                "Raw output export is disabled by configuration (include_raw_output: false).",
+                s["body_dim"],
+            ))
+            return elements
+
+        for i, entry in enumerate(normalized[:100], 1):
+            elements.append(Paragraph(f"{i}. {self._safe(entry.get('tool', 'unknown'))}", s["h3"]))
+            elements.append(Paragraph(
+                f"<b>Command:</b> {self._safe(entry.get('command', '(no command)'))}",
+                s["body_dim"],
+            ))
+            annex = str(entry.get("annex_output", "(no output)"))
+            if len(annex) > 6000:
+                annex = annex[:6000] + "\n... [truncated]"
+            elements.append(Paragraph(self._safe(annex).replace("\n", "<br/>"), s["evidence"]))
+            elements.append(Spacer(1, 0.25 * cm))
 
         return elements
 
@@ -1073,6 +1108,18 @@ class PDFReportGenerator:
             out = dict(entry)
             out["tool"] = tool or "unknown"
             out["command"] = cmd or "(no command)"
+            out["sudo_used"] = out["command"].startswith("sudo ")
+
+            stdout = str(out.get("stdout", "") or "")
+            stderr = str(out.get("stderr", "") or "")
+            if stdout and stderr:
+                out["annex_output"] = f"{stdout}\n\n[STDERR]\n{stderr}"
+            elif stdout:
+                out["annex_output"] = stdout
+            elif stderr:
+                out["annex_output"] = f"[STDERR]\n{stderr}"
+            else:
+                out["annex_output"] = "(no output)"
             normalized.append(out)
         return normalized
 

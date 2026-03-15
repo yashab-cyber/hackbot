@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from hackbot.config import LOGS_DIR
+from hackbot.config import LOGS_DIR, resolve_tool_path
 
 # Lazy reference — filled at runtime to avoid circular imports
 _plugin_manager = None
@@ -176,7 +176,7 @@ class ToolRunner:
 
     def is_tool_available(self, tool: str) -> bool:
         """Check if a tool is installed on the system."""
-        return shutil.which(tool) is not None
+        return resolve_tool_path(tool) is not None
 
     def is_tool_allowed(self, tool: str) -> bool:
         """Check if a tool is in the allowed list."""
@@ -189,7 +189,22 @@ class ToolRunner:
             else os.path.basename(t).lower()
             for t in self.allowed_tools
         }
-        return normalized in allowed
+        if normalized in allowed:
+            return True
+
+        # Allow concrete alias binaries for logical package-level tools
+        # in the allowlist (e.g., `thc-ipv6` -> `alive6` on Kali).
+        for logical_tool in self.allowed_tools:
+            resolved = resolve_tool_path(logical_tool)
+            if not resolved:
+                continue
+            resolved_name = os.path.basename(resolved).lower()
+            if resolved_name.endswith(".exe"):
+                resolved_name = resolved_name[:-4]
+            if normalized == resolved_name:
+                return True
+
+        return False
 
     def _extract_validated_tool(self, parts: List[str]) -> str:
         """Extract the real executable name from parsed command parts.

@@ -31,20 +31,20 @@ Edit the version in **two files**:
 
 **Versioning convention:** `MAJOR.MINOR.PATCH`
 - **MAJOR** — breaking changes (2.0.0)
-- **MINOR** — new features (1.1.0)
+- **MINOR** — new features (1.1.2)
 - **PATCH** — bug fixes (1.0.1)
 
 ```bash
-# Example: bump to 1.1.0
-sed -i 's/__version__ = ".*"/__version__ = "1.1.0"/' hackbot/__init__.py
-sed -i 's/^version = ".*"/version = "1.1.0"/' pyproject.toml
+# Example: bump to 1.1.2
+sed -i 's/__version__ = ".*"/__version__ = "1.1.2"/' hackbot/__init__.py
+sed -i 's/^version = ".*"/version = "1.1.2"/' pyproject.toml
 ```
 
 Commit the version bump:
 
 ```bash
 git add hackbot/__init__.py pyproject.toml
-git commit -m "chore: bump version to 1.1.0"
+git commit -m "chore: bump version to 1.1.2"
 git push origin main
 ```
 
@@ -54,10 +54,10 @@ git push origin main
 
 ```bash
 # Create an annotated tag
-git tag -a v1.1.0 -m "Release v1.1.0"
+git tag -a v1.1.2 -m "Release v1.1.2"
 
 # Push the tag to GitHub
-git push origin v1.1.0
+git push origin v1.1.2
 ```
 
 ---
@@ -67,8 +67,8 @@ git push origin v1.1.0
 ### Option A: Using GitHub CLI (Recommended)
 
 ```bash
-gh release create v1.1.0 \
-  --title "HackBot v1.1.0" \
+gh release create v1.1.2 \
+  --title "HackBot v1.1.2" \
   --notes "## What's New
 
 - Feature 1 description
@@ -79,7 +79,7 @@ gh release create v1.1.0 \
 - Fix 1 description
 
 ## Full Changelog
-https://github.com/yashab-cyber/hackbot/compare/v1.0.0...v1.1.0"
+https://github.com/yashab-cyber/hackbot/compare/v1.1.1...v1.1.2"
 ```
 
 ### Option B: With Release Notes from a File
@@ -100,19 +100,19 @@ cat > /tmp/release-notes.md << 'EOF'
 - Fixed screenshot labels in README
 
 ## Full Changelog
-https://github.com/yashab-cyber/hackbot/compare/v1.0.0...v1.1.0
+https://github.com/yashab-cyber/hackbot/compare/v1.1.1...v1.1.2
 EOF
 
-gh release create v1.1.0 \
-  --title "HackBot v1.1.0" \
+gh release create v1.1.2 \
+  --title "HackBot v1.1.2" \
   --notes-file /tmp/release-notes.md
 ```
 
 ### Option C: Auto-Generate Notes from Commits
 
 ```bash
-gh release create v1.1.0 \
-  --title "HackBot v1.1.0" \
+gh release create v1.1.2 \
+  --title "HackBot v1.1.2" \
   --generate-notes
 ```
 
@@ -125,14 +125,14 @@ If you have build artifacts (wheels, archives, etc.):
 ```bash
 # Build the package first
 pip install build
-python -m build   # creates dist/hackbot-1.1.0.tar.gz and .whl
+python -m build   # creates dist/hackbot-1.1.2.tar.gz and .whl
 
 # Create release with attachments
-gh release create v1.1.0 \
-  --title "HackBot v1.1.0" \
+gh release create v1.1.2 \
+  --title "HackBot v1.1.2" \
   --generate-notes \
-  dist/hackbot-1.1.0.tar.gz \
-  dist/hackbot-1.1.0-py3-none-any.whl
+  dist/hackbot-1.1.2.tar.gz \
+  dist/hackbot-1.1.2-py3-none-any.whl
 ```
 
 ---
@@ -144,10 +144,10 @@ gh release create v1.1.0 \
 gh release list
 
 # View the release
-gh release view v1.1.0
+gh release view v1.1.2
 
 # Open in browser
-gh release view v1.1.0 --web
+gh release view v1.1.2 --web
 ```
 
 ---
@@ -157,7 +157,7 @@ gh release view v1.1.0 --web
 For a fast release after everything is committed and pushed:
 
 ```bash
-VERSION="1.1.0" && \
+VERSION="1.1.2" && \
 sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" hackbot/__init__.py && \
 sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml && \
 git add -A && \
@@ -174,11 +174,11 @@ gh release create "v$VERSION" --title "HackBot v$VERSION" --generate-notes
 
 ```bash
 # Delete the release (keeps the tag)
-gh release delete v1.1.0 --yes
+gh release delete v1.1.2 --yes
 
 # Delete the tag too
-git tag -d v1.1.0
-git push --delete origin v1.1.0
+git tag -d v1.1.2
+git push --delete origin v1.1.2
 ```
 
 ---
@@ -188,8 +188,8 @@ git push --delete origin v1.1.0
 Create as draft, review on GitHub, then publish:
 
 ```bash
-gh release create v1.1.0 \
-  --title "HackBot v1.1.0" \
+gh release create v1.1.2 \
+  --title "HackBot v1.1.2" \
   --generate-notes \
   --draft
 ```

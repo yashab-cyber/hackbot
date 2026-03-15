@@ -539,15 +539,27 @@ Explain your reasoning at each step."""
         Returns the last AI analysis text, or "" if nothing was executed.
         """
         last_analysis = ""
+        failure_counts: Dict[tuple[str, int, str], int] = {}
 
         for _round in range(max_rounds):
             results_text = []
+            repeated_failures: List[ToolResult] = []
 
             for action in actions:
                 atype = action.get("action")
                 if atype == "execute":
-                    result = self._execute_action(action)
-                    results_text.append(result)
+                    result_text, tool_result = self._execute_action(action)
+                    results_text.append(result_text)
+
+                    if not tool_result.success:
+                        signature = (
+                            tool_result.command.strip(),
+                            tool_result.return_code,
+                            (tool_result.stderr or "").strip(),
+                        )
+                        failure_counts[signature] = failure_counts.get(signature, 0) + 1
+                        if failure_counts[signature] >= 2:
+                            repeated_failures.append(tool_result)
                 elif atype == "finding":
                     self._record_finding(action)
                 elif atype == "script":
@@ -563,6 +575,19 @@ Explain your reasoning at each step."""
             # If no commands were executed this round, we're done
             if not results_text:
                 break
+
+            # Loop guard: stop repeated identical failures in the same run loop.
+            if repeated_failures:
+                failed = repeated_failures[0]
+                loop_msg = (
+                    "Stopped automatic retries to prevent an execution loop. "
+                    "The same command failed repeatedly.\n\n"
+                    f"Command: `{failed.command}`\n"
+                    f"Error: `{(failed.stderr or 'Unknown error').strip()}`\n\n"
+                    "Please adjust configuration/tool availability and continue with a different command."
+                )
+                self.conversation.add("assistant", loop_msg)
+                return loop_msg
 
             # Feed results back to AI
             result_msg = "\n\n---\n\n".join(results_text)
@@ -663,8 +688,8 @@ Explain your reasoning at each step."""
 
         return self._parse_actions(response)
 
-    def _execute_action(self, action: Dict[str, Any]) -> str:
-        """Execute a tool action and return formatted result."""
+    def _execute_action(self, action: Dict[str, Any]) -> tuple[str, ToolResult]:
+        """Execute a tool action and return (formatted_result, raw_tool_result)."""
         command = action.get("command", "")
         tool = action.get("tool", command.split()[0] if command else "unknown")
         explanation = action.get("explanation", "")
@@ -695,7 +720,7 @@ Explain your reasoning at each step."""
             if cve_intel:
                 output += f"\n\n{cve_intel}"
 
-        return output
+        return output, result
 
     def _save_script(self, action: Dict[str, Any]) -> str:
         """Persist a generated script/exploit and return a formatted summary."""

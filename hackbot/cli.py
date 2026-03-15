@@ -74,6 +74,31 @@ from hackbot.ui import (
 load_dotenv()
 
 
+def _should_block_root_gui_launch() -> bool:
+    """Return True if GUI launch should be blocked due to root/sudo context.
+
+    On Linux/macOS, running the desktop GUI with sudo commonly breaks display/
+    desktop session access. Users should run GUI as their regular user and let
+    HackBot use sudo for tools via config/flag instead.
+    """
+    geteuid = getattr(os, "geteuid", None)
+    if not callable(geteuid):
+        return False
+
+    if geteuid() != 0:
+        return False
+
+    sudo_user = os.environ.get("SUDO_USER", "")
+    print_error("HackBot GUI cannot be launched as root/sudo in desktop mode.")
+    print_info("Run GUI as your normal user instead:")
+    if sudo_user:
+        print_info(f"  sudo -u {sudo_user} -H hackbot gui")
+    print_info("  hackbot gui")
+    print_info("If you need privileged scans, keep GUI non-root and use:")
+    print_info("  sudo -v && hackbot --sudo")
+    return True
+
+
 class HackBotApp:
     """Main HackBot application controller."""
 
@@ -2378,6 +2403,8 @@ def main(ctx, model, provider, api_key, base_url, no_banner, verbose, safe_mode,
     ctx.obj["config"] = config
 
     if gui:
+        if _should_block_root_gui_launch():
+            return
         # Launch web-based GUI
         try:
             from hackbot.gui.app import launch_gui
@@ -2607,6 +2634,8 @@ def telegram(ctx, token):
 def gui(ctx, host, port):
     """Launch the desktop GUI application."""
     config = ctx.obj["config"]
+    if _should_block_root_gui_launch():
+        return
     try:
         from hackbot.gui.app import launch_gui
         launch_gui(config, host=host, port=port)
