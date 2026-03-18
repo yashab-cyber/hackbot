@@ -104,7 +104,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   </div>
 </div>
 
-<h2>Executive Summary</h2>
+<h2>1. Executive Summary</h2>
 <div class="stats">
   {% for sev, count in severity_counts.items() %}
   <div class="stat">
@@ -122,7 +122,38 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <p>{{ summary }}</p>
 {% endif %}
 
-<h2>Findings</h2>
+<h2>2. Risk Assessment Charts</h2>
+{% if severity_counts %}
+<table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+  <thead>
+    <tr style="background: var(--accent); color: white;">
+      <th style="padding: 0.5rem 1rem; text-align: left;">Severity</th>
+      <th style="padding: 0.5rem 1rem; text-align: center;">Count</th>
+      <th style="padding: 0.5rem 1rem; text-align: center;">Percentage</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for sev, count in severity_counts.items() %}
+    <tr style="background: var(--surface); border-bottom: 1px solid var(--border);">
+      <td style="padding: 0.5rem 1rem; font-weight: 600;">
+        <span class="severity-badge severity-{{ sev }}">{{ sev }}</span>
+      </td>
+      <td style="padding: 0.5rem 1rem; text-align: center;">{{ count }}</td>
+      <td style="padding: 0.5rem 1rem; text-align: center;">{{ (count / total_findings * 100) | round(0) | int if total_findings else 0 }}%</td>
+    </tr>
+    {% endfor %}
+    <tr style="background: var(--bg); border-top: 2px solid var(--border); font-weight: 700;">
+      <td style="padding: 0.5rem 1rem;">Total</td>
+      <td style="padding: 0.5rem 1rem; text-align: center;">{{ total_findings }}</td>
+      <td style="padding: 0.5rem 1rem; text-align: center;">100%</td>
+    </tr>
+  </tbody>
+</table>
+{% else %}
+<p style="color: var(--text-dim);">No findings recorded.</p>
+{% endif %}
+
+<h2>3. Detailed Findings</h2>
 {% for finding in findings %}
 <div class="finding">
   <div class="finding-header">
@@ -274,10 +305,28 @@ class ReportGenerator:
             f"",
         ]
 
+        lines.append("## 1. Executive Summary")
+        lines.append("")
         if summary:
-            lines.extend(["## Executive Summary", "", summary, ""])
+            lines.extend([summary, ""])
 
-        lines.extend(["## Findings", ""])
+        # Risk Assessment Charts section
+        severity_counts = {}
+        for finding in findings:
+            sev = finding.get("severity", "Info")
+            severity_counts[sev] = severity_counts.get(sev, 0) + 1
+        total = len(findings)
+
+        lines.extend(["## 2. Risk Assessment Charts", ""])
+        lines.append("| Severity | Count | Percentage |")
+        lines.append("|----------|-------|------------|")
+        for sev, count in severity_counts.items():
+            pct = f"{count / total * 100:.0f}%" if total else "0%"
+            lines.append(f"| {sev} | {count} | {pct} |")
+        lines.append(f"| **Total** | **{total}** | **100%** |")
+        lines.append("")
+
+        lines.extend(["## 3. Detailed Findings", ""])
 
         for i, f in enumerate(findings, 1):
             sev = f.get("severity", "Info")
@@ -352,11 +401,27 @@ class ReportGenerator:
 
         normalized_tool_history = self._normalize_tool_history(tool_history)
 
+        severity_counts: Dict[str, int] = {}
+        for f in findings:
+            sev = f.get("severity", "Info")
+            severity_counts[sev] = severity_counts.get(sev, 0) + 1
+        total = len(findings)
+
+        risk_assessment = [
+            {
+                "severity": sev,
+                "count": count,
+                "percentage": f"{count / total * 100:.0f}%" if total else "0%",
+            }
+            for sev, count in severity_counts.items()
+        ]
+
         data = {
             "target": target,
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "scope": scope,
             "summary": summary,
+            "risk_assessment": risk_assessment,
             "findings": findings,
             "tool_history": normalized_tool_history,
             "commands_executed": [
