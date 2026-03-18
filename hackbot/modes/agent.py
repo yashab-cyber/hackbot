@@ -159,6 +159,8 @@ class AgentMode:
         self._step_count: int = 0
         self._last_response: str = ""
         self._was_truncated: bool = False
+        self._command_history: Dict[str, int] = {}
+        self._nudge_count: int = 0
 
         # Vulnerability database
         self.vulndb = VulnDB()
@@ -191,6 +193,8 @@ class AgentMode:
         self.findings = []
         self.scripts = []
         self._step_count = 0
+        self._command_history = {}
+        self._nudge_count = 0
         self.is_running = True
 
         # Validate sudo access upfront if sudo_mode is on
@@ -268,8 +272,7 @@ Explain your reasoning at each step."""
         actions = self._parse_actions(response)
 
         # If the AI described a plan but didn't emit JSON action blocks, nudge it
-        if not actions and len(response) > 100:
-            logger.info("No action blocks found in initial response; nudging AI...")
+        if not actions and len(response) > 100 and self._should_nudge(response):
             actions = self._nudge_for_actions()
 
         # Process actions in a loop — including execute actions from follow-up analysis
@@ -297,6 +300,7 @@ Explain your reasoning at each step."""
             return "Maximum steps reached. Generating final report...", True
 
         self._step_count += 1
+        self._nudge_count = 0
 
         # Summarize conversation if it's getting too long (reduces hallucination)
         if self.summarizer.needs_summarization(self.conversation.messages):
@@ -330,8 +334,7 @@ Explain your reasoning at each step."""
         actions = self._parse_actions(response)
 
         # If the AI described a plan but didn't emit JSON action blocks, nudge it
-        if not actions and len(response) > 100:
-            logger.info("No action blocks found in step response; nudging AI...")
+        if not actions and len(response) > 100 and self._should_nudge(response):
             actions = self._nudge_for_actions()
 
         # Process actions in a loop — including execute actions from follow-up analysis
@@ -527,7 +530,7 @@ Explain your reasoning at each step."""
     def _process_actions_loop(
         self,
         actions: List[Dict[str, Any]],
-        max_rounds: int = 10,
+        max_rounds: int = 5,
     ) -> str:
         """
         Execute actions and keep processing follow-up actions from AI analysis.
@@ -544,10 +547,30 @@ Explain your reasoning at each step."""
         for _round in range(max_rounds):
             results_text = []
             repeated_failures: List[ToolResult] = []
+            seen_this_round: set = set()
 
             for action in actions:
                 atype = action.get("action")
                 if atype == "execute":
+                    cmd = (action.get("command") or "").strip()
+
+                    # Skip duplicate commands within the same round
+                    if cmd in seen_this_round:
+                        logger.info("Skipping duplicate command in same round: %s", cmd)
+                        continue
+                    seen_this_round.add(cmd)
+
+                    # Skip commands already executed too many times this session
+                    if self._command_history.get(cmd, 0) >= 2:
+                        skip_msg = (
+                            f"**[Skipped]** Command `{cmd}` already executed "
+                            f"{self._command_history[cmd]} times. "
+                            f"Try a different approach or tool."
+                        )
+                        logger.info("Skipping repeated command: %s (count=%d)", cmd, self._command_history[cmd])
+                        results_text.append(skip_msg)
+                        continue
+
                     result_text, tool_result = self._execute_action(action)
                     results_text.append(result_text)
 
@@ -652,6 +675,22 @@ Explain your reasoning at each step."""
 
         return actions
 
+    # Pattern to detect tool/command mentions in AI responses
+    _TOOL_PATTERN = re.compile(
+        r'\b(nmap|nikto|sqlmap|gobuster|dirb|hydra|curl|wget|ping|traceroute|'
+        r'dig|whois|masscan|ffuf|wfuzz|burp|nuclei|metasploit|msfconsole|'
+        r'feroxbuster|amass|subfinder|httpx|testssl|sslscan|enum4linux|'
+        r'smbclient|wpscan|john|hashcat)\b',
+        re.IGNORECASE,
+    )
+
+    def _should_nudge(self, response: str) -> bool:
+        """Only nudge if response mentions tool names and we haven't nudged this step."""
+        if self._nudge_count >= 1:
+            return False
+        self._nudge_count += 1
+        return bool(self._TOOL_PATTERN.search(response))
+
     def _nudge_for_actions(self) -> List[Dict[str, Any]]:
         """
         If the AI described commands but didn't emit JSON action blocks,
@@ -693,6 +732,10 @@ Explain your reasoning at each step."""
         command = action.get("command", "")
         tool = action.get("tool", command.split()[0] if command else "unknown")
         explanation = action.get("explanation", "")
+
+        # Track command execution count for loop prevention
+        cmd_key = command.strip()
+        self._command_history[cmd_key] = self._command_history.get(cmd_key, 0) + 1
 
         result = self.runner.execute(command, tool_name=tool, explanation=explanation)
 
