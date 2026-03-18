@@ -4,7 +4,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
-VERSION="1.1.2"
+VERSION="1.2.0"
 REPO="yashab-cyber/hackbot"
 BOLD='\033[1m'
 GREEN='\033[0;32m'
