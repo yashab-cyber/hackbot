@@ -1103,7 +1103,11 @@ class PDFReportGenerator:
             cmd = str(entry.get("command", "") or "").strip()
             tool = str(entry.get("tool", "") or "").strip()
             if not tool and cmd:
-                tool = cmd.split()[0]
+                parts = cmd.split()
+                if parts[0] == "sudo" and len(parts) > 1:
+                    tool = parts[1]
+                else:
+                    tool = parts[0]
 
             out = dict(entry)
             out["tool"] = tool or "unknown"
