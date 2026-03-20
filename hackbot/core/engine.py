@@ -431,7 +431,7 @@ class AIEngine:
         if provider in ("ollama", "local"):
             return {"valid": True, "message": f"{provider} provider does not require an API key"}
 
-        if not self.config.api_key:
+        if not self.config.api_key and not self.config.base_url:
             return {"valid": False, "message": "No API key configured", "error": "missing_key"}
 
         try:

@@ -2722,7 +2722,8 @@ def _interactive_repl(config: HackBotConfig, show_banner_flag: bool = True) -> N
         console.print("[dim]  Type /help for commands, /quit to exit[/]\n")
 
     # Show warnings
-    if not config.ai.api_key:
+    app = HackBotApp(config)
+    if not app.engine.is_configured():
         print_warning(
             "No API key configured. Set one with:\n"
             "  /key <your-api-key>\n"
@@ -2736,8 +2737,6 @@ def _interactive_repl(config: HackBotConfig, show_banner_flag: bool = True) -> N
         f"Python {plat['python']} | "
         f"Model: {config.ai.model}[/]\n"
     )
-
-    app = HackBotApp(config)
 
     # Setup prompt with history
     history_file = CONFIG_DIR / "history"
