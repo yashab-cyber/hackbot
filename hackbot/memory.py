@@ -220,9 +220,10 @@ class MemoryManager:
         target: str = "",
         findings: Optional[List[Dict[str, Any]]] = None,
         scripts: Optional[List[Dict[str, Any]]] = None,
+        steps: Optional[List[Dict[str, Any]]] = None,
     ) -> Path:
-        """Quick auto-save for agent mode with findings."""
-        return self.save_session(
+        """Quick auto-save for agent mode with findings and execution logs."""
+        path = self.save_session(
             session_id=session_id,
             mode="agent",
             messages=messages,
@@ -230,6 +231,57 @@ class MemoryManager:
             target=target,
             extra={"findings": findings or [], "scripts": scripts or []},
         )
+        
+        # Save Agent Execution Logs
+        if steps is not None:
+            try:
+                from hackbot.config import REPORTS_DIR
+                sess_report_dir = REPORTS_DIR / f"session_{session_id}"
+                sess_report_dir.mkdir(parents=True, exist_ok=True)
+                
+                # JSON log
+                json_path = sess_report_dir / "execution_log.json"
+                with open(json_path, "w") as f:
+                    json.dump(steps, f, indent=2, default=str)
+                
+                # TXT log
+                txt_path = sess_report_dir / "execution_log.txt"
+                with open(txt_path, "w") as f:
+                    for step in steps:
+                        f.write(f"[Step {step.get('step_num', 0)}]\n")
+                        
+                        ts = step.get('timestamp', 0)
+                        if ts:
+                            time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
+                            f.write(f"Timestamp: {time_str}\n")
+                        
+                        if step.get("ai_analysis"):
+                            f.write(f"Agent Thought: {step['ai_analysis'].strip()}\n")
+                        
+                        tool_res = step.get("tool_result")
+                        if tool_res:
+                            f.write(f"Tool: {tool_res.get('tool', 'unknown')}\n")
+                            f.write(f"Command: {tool_res.get('command', '')}\n\n")
+                            val_out = tool_res.get('stdout', '') or ''
+                            f.write("[Output]\n")
+                            f.write(f"{val_out.strip()}\n\n")
+                            
+                            val_err = tool_res.get('stderr', '') or ''
+                            if val_err.strip():
+                                f.write("[Errors]\n")
+                                f.write(f"{val_err.strip()}\n\n")
+                                
+                            f.write(f"Execution Status: {'Success' if tool_res.get('success') else 'Failure'}\n")
+                        else:
+                            f.write(f"Action: {step.get('action', 'unknown')}\n")
+                            f.write(f"Description: {step.get('description', '')}\n")
+                        
+                        f.write("-" * 40 + "\n\n")
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning("Failed to auto-save execution logs: %s", e)
+                
+        return path
 
 
 # ── Conversation Summarizer ─────────────────────────────────────────────────

@@ -391,6 +391,22 @@ def api_session_restore(session_id):
     return jsonify({"error": "Session not found"}), 404
 
 
+@app.route("/api/agent/replay/<session_id>", methods=["GET"])
+def api_agent_replay(session_id):
+    """Fetch the execution logs for a session."""
+    from hackbot.config import REPORTS_DIR
+    import json
+    path = REPORTS_DIR / f"session_{session_id}" / "execution_log.json"
+    if not path.exists():
+        return jsonify({"error": "Replay data not found"}), 404
+    try:
+        with open(path) as f:
+            steps = json.load(f)
+        return jsonify({"steps": steps})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ── Routes: Agent ────────────────────────────────────────────────────────────
 
 @app.route("/api/agent/start", methods=["POST"])
@@ -425,7 +441,11 @@ def api_agent_start():
         def on_token(token):
             token_queue.put(("token", token))
 
+        def on_step(step):
+            token_queue.put(("step", step.to_dict()))
+
         agent.on_token = on_token
+        agent.on_step = on_step
 
         def run_agent():
             try:
@@ -443,7 +463,10 @@ def api_agent_start():
             if kind == "done":
                 yield f"data: [DONE]\n\n"
                 break
-            yield f"data: {json.dumps({'token': value})}\n\n"
+            elif kind == "step":
+                yield f"data: {json.dumps({'step': value})}\n\n"
+            else:
+                yield f"data: {json.dumps({'token': value})}\n\n"
 
     return Response(
         stream_with_context(generate()),
@@ -468,7 +491,11 @@ def api_agent_step():
         def on_token(token):
             token_queue.put(("token", token))
 
+        def on_step(step):
+            token_queue.put(("step", step.to_dict()))
+
         agent.on_token = on_token
+        agent.on_step = on_step
 
         def run_step():
             try:
@@ -489,6 +516,8 @@ def api_agent_step():
                 break
             elif kind == "meta":
                 yield f"data: {json.dumps(value)}\n\n"
+            elif kind == "step":
+                yield f"data: {json.dumps({'step': value})}\n\n"
             else:
                 yield f"data: {json.dumps({'token': value})}\n\n"
 

@@ -365,9 +365,36 @@ textarea#userInput::placeholder{color:var(--text-dim)}
       </div>
     </div>
 
-    <!-- Agent Chat (hidden until started) -->
-    <div class="chat-area" id="agentMessages" style="display:none"></div>
-    <div class="input-area" id="agentInputArea" style="display:none">
+    <!-- Agent Execution View (hidden until started) -->
+    <div id="agentExecutionView" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+      <div style="display:flex;flex:1;overflow:hidden">
+        <!-- Left Pane: Step List -->
+        <div style="width:280px;min-width:280px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg2)">
+          <div style="padding:10px 16px;font-weight:600;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase">Execution Steps</div>
+          <div id="agentStepList" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
+            <!-- Steps go here -->
+          </div>
+        </div>
+        
+        <!-- Right Pane: Terminal Output -->
+        <div style="flex:1;display:flex;flex-direction:column;background:var(--bg)">
+          <div style="padding:10px 16px;font-weight:600;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--text-dim);background:var(--bg2);letter-spacing:1px;text-transform:uppercase">Live Terminal</div>
+          <div id="agentTerminal" style="flex:1;overflow-y:auto;padding:16px;font-family:var(--mono);font-size:.85rem;white-space:pre-wrap;color:#e6edf3">
+            <!-- Terminal output goes here -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Bottom Pane: AI Thoughts / Logs -->
+      <div style="height:220px;min-height:220px;border-top:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg3)">
+        <div style="padding:8px 16px;font-weight:600;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--text-dim);background:var(--bg2);letter-spacing:1px;text-transform:uppercase">Agent Thoughts & Reasoning</div>
+        <div class="chat-area" id="agentThoughts" style="flex:1;padding:12px 20px;gap:8px">
+          <!-- Markdown thoughts go here -->
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area" id="agentInputArea" style="display:none;border-top:1px solid var(--border)">
       <div class="input-row">
         <div class="input-wrapper">
           <textarea id="agentInput" rows="1" placeholder="Guide the agent or type a command..." onkeydown="handleKey(event,'agent')"></textarea>
@@ -477,6 +504,46 @@ textarea#userInput::placeholder{color:var(--text-dim)}
     </div>
     <div style="flex:1;overflow-y:auto;padding:24px" id="sessionsList">
       <p style="color:var(--text-dim)">Loading sessions...</p>
+    </div>
+  </div>
+
+  <!-- ── Replay Mode Panel ─────────────────────────────────────────────── -->
+  <div class="panel" id="panel-replay" style="display:none;flex-direction:column;height:100%">
+    <div class="header" style="flex-shrink:0">
+      <div class="header-title">⏪ Replay Mode — <span id="replayTargetLabel">Loading...</span></div>
+      <div class="header-actions" style="display:flex;gap:12px;align-items:center">
+        <div style="font-size:0.8rem;color:var(--text-dim);min-width:60px" id="replaySpeedContainer"><span id="replaySpeedLabel">1x</span> Speed</div>
+        <input type="range" id="replaySpeedSlider" min="1" max="10" value="1" style="width:100px" oninput="document.getElementById('replaySpeedLabel').textContent = this.value + 'x'; replaySpeed = parseInt(this.value)">
+        <button class="btn btn-sm" id="replayPrevBtn" onclick="replayPrevStep()">⏮ Prev</button>
+        <button class="btn btn-sm btn-primary" id="replayPlayBtn" onclick="toggleReplay()">▶ Play</button>
+        <button class="btn btn-sm" id="replayNextBtn" onclick="replayNextStep()">⏭ Next</button>
+        <button class="btn btn-sm btn-danger" onclick="closeReplay()">✖ Close</button>
+      </div>
+    </div>
+    
+    <div style="display:flex;flex:1;flex-direction:column;overflow:hidden">
+      <div style="display:flex;flex:1;overflow:hidden">
+        <!-- Left Pane: Step List -->
+        <div style="width:280px;min-width:280px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg2)">
+          <div style="padding:10px 16px;font-weight:600;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase">Execution Steps</div>
+          <div id="replayStepList" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
+          </div>
+        </div>
+        
+        <!-- Right Pane: Terminal Output -->
+        <div style="flex:1;display:flex;flex-direction:column;background:var(--bg)">
+          <div style="padding:10px 16px;font-weight:600;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--text-dim);background:var(--bg2);letter-spacing:1px;text-transform:uppercase">Terminal Emulation</div>
+          <div id="replayTerminal" style="flex:1;overflow-y:auto;padding:16px;font-family:var(--mono);font-size:.85rem;white-space:pre-wrap;color:#e6edf3">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Bottom Pane: AI Thoughts / Logs -->
+      <div style="height:220px;min-height:220px;border-top:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg3)">
+        <div style="padding:8px 16px;font-weight:600;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--text-dim);background:var(--bg2);letter-spacing:1px;text-transform:uppercase">Recorded Thoughts & Reasoning</div>
+        <div class="chat-area" id="replayThoughts" style="flex:1;padding:12px 20px;gap:8px">
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1061,6 +1128,9 @@ function streamSSE(url, body, container, { onDone, onMeta } = {}) {
                 bubble.innerHTML = renderMd(fullText) + '<span class="typing-indicator" style="display:inline-flex"><span></span><span></span><span></span></span>';
                 area.scrollTop = area.scrollHeight;
               }
+              if (data.step && onStep) {
+                onStep(data.step);
+              }
               if (data.complete !== undefined && onMeta) {
                 onMeta(data);
               }
@@ -1133,25 +1203,33 @@ async function agentStart() {
   const scope = document.getElementById('agentScope').value.trim();
   const instructions = document.getElementById('agentInstructions').value.trim();
 
-  // Switch to chat view
+  // Switch to execution view
   document.getElementById('agentStartForm').style.display = 'none';
-  document.getElementById('agentMessages').style.display = 'flex';
+  document.getElementById('agentExecutionView').style.display = 'flex';
   document.getElementById('agentInputArea').style.display = 'block';
   document.getElementById('agentTargetLabel').textContent = target;
   document.getElementById('agentStepBtn').style.display = '';
   document.getElementById('agentStopBtn').style.display = '';
   document.getElementById('agentExportBtn').style.display = '';
   document.getElementById('agentPdfBtn').style.display = '';
+  
+  // Clear panes
+  document.getElementById('agentStepList').innerHTML = '';
+  document.getElementById('agentTerminal').innerHTML = '';
+  document.getElementById('agentThoughts').innerHTML = '';
   agentRunning = true;
 
-  addMsg('agentMessages', 'system',
+  addMsg('agentThoughts', 'system',
     `Starting assessment against <strong>${target}</strong>` +
     (scope ? ` | Scope: ${scope}` : ''), true);
 
   await streamSSE('/api/agent/start',
     { target, scope, instructions },
-    'agentMessages',
-    { onDone: () => { checkTruncation('agent'); } }
+    'agentThoughts',
+    { 
+      onDone: () => { checkTruncation('agent'); },
+      onStep: renderAgentStep
+    }
   );
 }
 
@@ -1187,7 +1265,7 @@ async function agentStep() {
 
   await streamSSE('/api/agent/step',
     { message: msg },
-    'agentMessages',
+    'agentThoughts',
     {
       onMeta: (data) => {
         if (data.complete) {
@@ -1195,9 +1273,50 @@ async function agentStep() {
           toast('Assessment complete!', 'success');
         }
       },
-      onDone: () => { checkTruncation('agent'); }
+      onDone: () => { checkTruncation('agent'); },
+      onStep: renderAgentStep
     }
   );
+}
+
+function escapeHtml(text) {
+  return (text || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                     .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+function renderAgentStep(step) {
+  // Update left panel
+  const list = document.getElementById('agentStepList');
+  const d = document.createElement('div');
+  d.style.padding = '8px 12px';
+  d.style.background = 'var(--bg3)';
+  d.style.border = '1px solid var(--border)';
+  d.style.borderRadius = '6px';
+  d.style.flexShrink = '0';
+  const statusIcon = step.tool_result ? (step.tool_result.success ? '✅' : '❌') : (step.action === 'complete' ? '🎉' : '⏱️');
+  const title = step.tool_result ? step.tool_result.tool : step.action;
+  
+  d.innerHTML = `<div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Step ${step.step_num}</div>
+                 <div style="font-size:0.85rem;font-weight:600">${statusIcon} ${escapeHtml(title)}</div>
+                 <div style="font-size:0.75rem;color:var(--text-dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(step.description)}</div>`;
+  list.appendChild(d);
+  list.scrollTop = list.scrollHeight;
+
+  // Update terminal
+  const term = document.getElementById('agentTerminal');
+  if (step.tool_result && step.tool_result.command) {
+    let out = `<span style="color:var(--cyan);font-weight:600">$ ${escapeHtml(step.tool_result.command)}</span>\n`;
+    if (step.tool_result.stdout) {
+      let stdout = step.tool_result.stdout;
+      if (stdout.length > 5000) stdout = stdout.substring(0, 5000) + '\n... [truncated]';
+      out += escapeHtml(stdout) + '\n';
+    }
+    if (step.tool_result.stderr) {
+      out += `<span style="color:var(--red)">${escapeHtml(step.tool_result.stderr)}</span>\n`;
+    }
+    term.innerHTML += out + '\n';
+    term.scrollTop = term.scrollHeight;
+  }
 }
 
 async function continueAgent() {
@@ -1499,6 +1618,7 @@ async function loadSessions() {
             </div>
           </div>
           <div class="session-actions" onclick="event.stopPropagation()">
+            ${s.mode === 'agent' ? `<button class="btn btn-sm btn-primary" onclick="openReplay('${s.id}')" title="Replay">⏪</button>` : ''}
             <button class="btn btn-sm" onclick="restoreSession('${s.id}')" title="Load">📂</button>
             <button class="btn btn-sm btn-danger" onclick="deleteSession('${s.id}')" title="Delete">🗑</button>
           </div>
@@ -1550,6 +1670,148 @@ async function deleteSession(sessionId) {
     loadSessions();
   } catch (e) {
     toast('Failed to delete: ' + e.message, 'error');
+  }
+}
+
+// ── Replay Mode ─────────────────────────────────────────────────────────────
+
+let replaySteps = [];
+let replayCurrentIndex = 0;
+let replaySpeed = 1;
+let replayInterval = null;
+let isReplaying = false;
+
+async function openReplay(sessionId) {
+  // Hide all panels, show replay panel
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-replay').style.display = 'flex';
+  document.getElementById('panel-replay').classList.add('active');
+
+  document.getElementById('replayTargetLabel').textContent = 'Loading...';
+  document.getElementById('replayStepList').innerHTML = '';
+  document.getElementById('replayTerminal').innerHTML = '';
+  document.getElementById('replayThoughts').innerHTML = '';
+  
+  try {
+    const resp = await fetch(`/api/agent/replay/${sessionId}`);
+    if (!resp.ok) {
+      toast('Failed to load replay data for ' + sessionId, 'error');
+      closeReplay();
+      return;
+    }
+    const data = await resp.json();
+    replaySteps = data.steps || [];
+    replayCurrentIndex = 0;
+    document.getElementById('replayTargetLabel').textContent = `Session ${sessionId} (${replaySteps.length} steps)`;
+    
+    // Play automatically
+    if (replaySteps.length > 0) {
+      toggleReplay();
+    }
+  } catch(e) {
+    toast('Error loading replay: ' + e.message, 'error');
+    closeReplay();
+  }
+}
+
+function closeReplay() {
+  pauseReplay();
+  document.getElementById('panel-replay').style.display = 'none';
+  showPanel('panel-sessions');
+}
+
+function toggleReplay() {
+  if (isReplaying) { pauseReplay(); }
+  else { playReplay(); }
+}
+
+function playReplay() {
+  if (replayCurrentIndex >= replaySteps.length) return; // Done
+  isReplaying = true;
+  document.getElementById('replayPlayBtn').innerHTML = '⏸ Pause';
+  
+  const step = document.getElementById('replaySpeedSlider').value;
+  replaySpeed = parseInt(step) || 1;
+  const delayMs = Math.max(100, 2000 / replaySpeed); // e.g., 2s at 1x, 200ms at 10x
+  
+  replayInterval = setTimeout(() => {
+    replayNextStep();
+    if (isReplaying) playReplay();
+  }, delayMs);
+}
+
+function pauseReplay() {
+  isReplaying = false;
+  document.getElementById('replayPlayBtn').innerHTML = '▶ Play';
+  if (replayInterval) clearTimeout(replayInterval);
+}
+
+function replayNextStep() {
+  if (replayCurrentIndex >= replaySteps.length) {
+    pauseReplay();
+    return;
+  }
+  const step = replaySteps[replayCurrentIndex];
+  renderReplayStep(step);
+  replayCurrentIndex++;
+}
+
+function replayPrevStep() {
+  if (replayCurrentIndex <= 0) return;
+  // Re-rendering everything from scratch since we don't store DOM diffs
+  pauseReplay();
+  replayCurrentIndex--;
+  document.getElementById('replayStepList').innerHTML = '';
+  document.getElementById('replayTerminal').innerHTML = '';
+  document.getElementById('replayThoughts').innerHTML = '';
+  
+  for (let i = 0; i < replayCurrentIndex; i++) {
+    renderReplayStep(replaySteps[i]);
+  }
+}
+
+function renderReplayStep(step) {
+  // Left Panel
+  const list = document.getElementById('replayStepList');
+  const d = document.createElement('div');
+  d.style.padding = '8px 12px';
+  d.style.background = 'var(--bg3)';
+  d.style.border = '1px solid var(--border)';
+  d.style.borderRadius = '6px';
+  d.style.flexShrink = '0';
+  const statusIcon = step.tool_result ? (step.tool_result.success ? '✅' : '❌') : (step.action === 'complete' ? '🎉' : '⏱️');
+  const title = step.tool_result ? step.tool_result.tool : step.action;
+  
+  d.innerHTML = `<div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Step ${step.step_num}</div>
+                 <div style="font-size:0.85rem;font-weight:600">${statusIcon} ${escapeHtml(title)}</div>
+                 <div style="font-size:0.75rem;color:var(--text-dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(step.description)}</div>`;
+  list.appendChild(d);
+  list.scrollTop = list.scrollHeight;
+
+  // Right Panel Term
+  const term = document.getElementById('replayTerminal');
+  if (step.tool_result && step.tool_result.command) {
+    let out = `<span style="color:var(--cyan);font-weight:600">$ ${escapeHtml(step.tool_result.command)}</span>\n`;
+    if (step.tool_result.stdout) {
+      let stdout = step.tool_result.stdout;
+      if (stdout.length > 5000) stdout = stdout.substring(0, 5000) + '\n... [truncated]';
+      out += escapeHtml(stdout) + '\n';
+    }
+    if (step.tool_result.stderr) {
+      out += `<span style="color:var(--red)">${escapeHtml(step.tool_result.stderr)}</span>\n`;
+    }
+    term.innerHTML += out + '\n';
+    term.scrollTop = term.scrollHeight;
+  }
+
+  // Bottom Panel Thoughts
+  if (step.ai_analysis) {
+    const t = document.getElementById('replayThoughts');
+    const b = document.createElement('div');
+    b.className = 'msg msg-assistant';
+    b.innerHTML = `<div class="msg-label">Thought (Step ${step.step_num})</div><div class="msg-bubble">${renderMd(step.ai_analysis)}</div>`;
+    t.appendChild(b);
+    t.scrollTop = t.scrollHeight;
   }
 }
 

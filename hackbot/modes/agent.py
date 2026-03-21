@@ -86,6 +86,17 @@ class AgentStep:
     ai_analysis: str = ""
     timestamp: float = field(default_factory=time.time)
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "step_num": self.step_num,
+            "action": self.action,
+            "description": self.description,
+            "tool_result": self.tool_result.to_dict() if self.tool_result else None,
+            "finding": self.finding.to_dict() if self.finding else None,
+            "ai_analysis": self.ai_analysis,
+            "timestamp": self.timestamp,
+        }
+
 
 @dataclass
 class GeneratedScript:
@@ -276,7 +287,7 @@ Explain your reasoning at each step."""
             actions = self._nudge_for_actions()
 
         # Process actions in a loop — including execute actions from follow-up analysis
-        analysis = self._process_actions_loop(actions)
+        analysis = self._process_actions_loop(response, actions)
         if analysis:
             response = response + "\n\n" + analysis
 
@@ -349,7 +360,7 @@ Explain your reasoning at each step."""
             self._auto_save()
             return response, True
 
-        analysis = self._process_actions_loop(actions)
+        analysis = self._process_actions_loop(response, actions)
         if analysis:
             self._auto_save()
             return analysis, not self.is_running
@@ -428,6 +439,7 @@ Explain your reasoning at each step."""
                 target=self.target,
                 findings=findings,
                 scripts=[s.to_dict() for s in self.scripts],
+                steps=[s.to_dict() for s in self.steps],
             )
         except Exception:
             pass
@@ -529,6 +541,7 @@ Explain your reasoning at each step."""
 
     def _process_actions_loop(
         self,
+        ai_response_text: str,
         actions: List[Dict[str, Any]],
         max_rounds: int = 5,
     ) -> str:
@@ -571,7 +584,8 @@ Explain your reasoning at each step."""
                         results_text.append(skip_msg)
                         continue
 
-                    result_text, tool_result = self._execute_action(action)
+                    ai_analysis_clean = self._extract_thoughts(ai_response_text)
+                    result_text, tool_result = self._execute_action(action, ai_analysis=ai_analysis_clean)
                     results_text.append(result_text)
 
                     if not tool_result.success:
@@ -584,14 +598,27 @@ Explain your reasoning at each step."""
                         if failure_counts[signature] >= 2:
                             repeated_failures.append(tool_result)
                 elif atype == "finding":
-                    self._record_finding(action)
+                    ai_analysis_clean = self._extract_thoughts(ai_response_text)
+                    self._record_finding(action, ai_analysis=ai_analysis_clean)
                 elif atype == "script":
-                    script_result = self._save_script(action)
+                    ai_analysis_clean = self._extract_thoughts(ai_response_text)
+                    script_result = self._save_script(action, ai_analysis=ai_analysis_clean)
                     results_text.append(script_result)
                 elif atype == "generate_report":
-                    report_result = self._generate_report(action)
+                    ai_analysis_clean = self._extract_thoughts(ai_response_text)
+                    report_result = self._generate_report(action, ai_analysis=ai_analysis_clean)
                     results_text.append(report_result)
                 elif atype == "complete":
+                    ai_analysis_clean = self._extract_thoughts(ai_response_text)
+                    step = AgentStep(
+                        step_num=len(self.steps) + 1,
+                        action="complete",
+                        description="Assessment completed.",
+                        ai_analysis=ai_analysis_clean,
+                    )
+                    self.steps.append(step)
+                    if self.on_step:
+                        self.on_step(step)
                     self.is_running = False
                     return last_analysis
 
@@ -628,6 +655,8 @@ Explain your reasoning at each step."""
 
             self.conversation.add("assistant", analysis)
             self._last_response = analysis
+            ai_response_text = analysis
+            actions = self._parse_actions(analysis)
             self._was_truncated = self._detect_truncation(analysis)
             last_analysis = analysis
 
@@ -639,6 +668,13 @@ Explain your reasoning at each step."""
                 break
 
         return last_analysis
+
+    def _extract_thoughts(self, text: str) -> str:
+        """Strip JSON action blocks from the text to isolate the agent's reasoning."""
+        import re
+        cleaned = re.sub(r'```json\s*\{.*?\}\s*```', '', text, flags=re.DOTALL)
+        cleaned = re.sub(r'\{"action"\s*:\s*.*\}', '', cleaned)
+        return cleaned.strip()
 
     def _parse_actions(self, text: str) -> List[Dict[str, Any]]:
         """Extract JSON action blocks from AI response."""
@@ -727,7 +763,7 @@ Explain your reasoning at each step."""
 
         return self._parse_actions(response)
 
-    def _execute_action(self, action: Dict[str, Any]) -> tuple[str, ToolResult]:
+    def _execute_action(self, action: Dict[str, Any], ai_analysis: str = "") -> tuple[str, ToolResult]:
         """Execute a tool action and return (formatted_result, raw_tool_result)."""
         command = action.get("command", "")
         tool = action.get("tool", command.split()[0] if command else "unknown")
@@ -744,6 +780,7 @@ Explain your reasoning at each step."""
             action="execute",
             description=explanation,
             tool_result=result,
+            ai_analysis=ai_analysis,
         )
         self.steps.append(step)
 
@@ -765,7 +802,7 @@ Explain your reasoning at each step."""
 
         return output, result
 
-    def _save_script(self, action: Dict[str, Any]) -> str:
+    def _save_script(self, action: Dict[str, Any], ai_analysis: str = "") -> str:
         """Persist a generated script/exploit and return a formatted summary."""
         content = str(action.get("content", "") or "").strip()
         if not content:
@@ -822,6 +859,7 @@ Explain your reasoning at each step."""
             step_num=len(self.steps) + 1,
             action="script",
             description=description or f"Generated script: {name}",
+            ai_analysis=ai_analysis,
         )
         self.steps.append(step)
         if self.on_step:
@@ -896,7 +934,7 @@ Explain your reasoning at each step."""
 
         return report
 
-    def _record_finding(self, action: Dict[str, Any]) -> None:
+    def _record_finding(self, action: Dict[str, Any], ai_analysis: str = "") -> None:
         """Record a security finding."""
         try:
             severity = Severity(action.get("severity", "Info"))
@@ -927,13 +965,14 @@ Explain your reasoning at each step."""
             action="finding",
             description=f"[{severity.value}] {finding.title}",
             finding=finding,
+            ai_analysis=ai_analysis,
         )
         self.steps.append(step)
 
         if self.on_step:
             self.on_step(step)
 
-    def _generate_report(self, action: Dict[str, Any]) -> str:
+    def _generate_report(self, action: Dict[str, Any], ai_analysis: str = "") -> str:
         """Generate a PDF report from current findings."""
         if not HAS_REPORTLAB:
             msg = "PDF report generation unavailable — reportlab not installed."
@@ -941,6 +980,7 @@ Explain your reasoning at each step."""
                 step_num=len(self.steps) + 1,
                 action="report",
                 description=msg,
+                ai_analysis=ai_analysis,
             )
             self.steps.append(step)
             if self.on_step:
@@ -989,12 +1029,14 @@ Explain your reasoning at each step."""
                 start_time=self.steps[0].timestamp if self.steps else 0,
                 compliance_data=compliance_data,
                 attack_data=attack_data,
+                agent_steps=[s.to_dict() for s in self.steps],
             )
 
             step = AgentStep(
                 step_num=len(self.steps) + 1,
                 action="report",
                 description=f"PDF report saved: {path}",
+                ai_analysis=ai_analysis,
             )
             self.steps.append(step)
             if self.on_step:

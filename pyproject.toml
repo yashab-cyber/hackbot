@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hackbot"
-version = "1.2.0"
+version = "1.2.1"
 description = "HackBot — Production-ready AI cybersecurity assistant with Agent, Chat & Planning modes"
 readme = "README.md"
 license = {text = "MIT"}

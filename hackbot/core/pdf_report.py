@@ -399,6 +399,7 @@ class PDFReportGenerator:
         start_time: float = 0,
         compliance_data: Optional[Dict[str, Any]] = None,
         attack_data: Optional[Dict[str, Any]] = None,
+        agent_steps: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         """Generate PDF report, return file path."""
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -428,7 +429,7 @@ class PDFReportGenerator:
 
         # Table of contents
         story.append(PageBreak())
-        story.extend(self._table_of_contents(findings, tool_history, scripts, compliance_data, attack_data))
+        story.extend(self._table_of_contents(findings, tool_history, scripts, compliance_data, attack_data, agent_steps))
 
         # Executive summary
         story.append(PageBreak())
@@ -464,6 +465,11 @@ class PDFReportGenerator:
         if scripts:
             story.append(PageBreak())
             story.extend(self._scripts_section(scripts))
+
+        # Agent Execution Log
+        if agent_steps:
+            story.append(PageBreak())
+            story.extend(self._agent_log_section(agent_steps))
 
         # Build PDF
         doc.build(story, onFirstPage=self._page_footer, onLaterPages=self._page_footer)
@@ -543,7 +549,7 @@ class PDFReportGenerator:
 
     # ── Table of Contents ────────────────────────────────────────────────
 
-    def _table_of_contents(self, findings, tool_history, scripts, compliance_data, attack_data=None) -> list:
+    def _table_of_contents(self, findings, tool_history, scripts, compliance_data, attack_data=None, agent_steps=None) -> list:
         s = self.styles
         elements = [Paragraph("Table of Contents", s["h1"])]
 
@@ -565,6 +571,10 @@ class PDFReportGenerator:
             idx += 1
         if scripts:
             sections.append(f"{idx}. Generated Scripts")
+            idx += 1
+        if agent_steps:
+            sections.append(f"{idx}. Agent Execution Log")
+            idx += 1
 
         for section in sections:
             elements.append(Paragraph(f"• {section}", s["toc"]))
@@ -1126,6 +1136,64 @@ class PDFReportGenerator:
                 out["annex_output"] = "(no output)"
             normalized.append(out)
         return normalized
+
+    def _agent_log_section(self, agent_steps: List[Dict[str, Any]]) -> list:
+        """Render the detailed AI agent execution log, including thoughts and outputs."""
+        s = self.styles
+        elements = [Paragraph("Agent Execution Log", s["h1"])]
+
+        if not agent_steps:
+            elements.append(Paragraph("No agent execution steps recorded.", s["body_dim"]))
+            return elements
+
+        for i, step in enumerate(agent_steps, 1):
+            action = step.get("action", "unknown")
+            tool_res = step.get("tool_result")
+            if tool_res:
+                title = f"Step {step.get('step_num', i)}: Execute Tool -> {tool_res.get('tool', 'unknown')}"
+                status = "SUCCESS" if tool_res.get("success") else "FAILED"
+            else:
+                title = f"Step {step.get('step_num', i)}: Action -> {action.upper()}"
+                status = ""
+
+            elements.append(Paragraph(self._safe(title), s["h2"]))
+            
+            if status:
+                color = _GREEN if status == "SUCCESS" else SEVERITY_COLORS["Critical"]
+                status_xml = f'<font color="{color}">[{status}]</font>'
+                elements.append(Paragraph(f"<b>Status:</b> {status_xml}", s["body_dim"]))
+
+            desc = step.get("description", "")
+            if desc:
+                elements.append(Paragraph(self._safe(desc), s["body"]))
+
+            ai_analysis = step.get("ai_analysis", "")
+            if ai_analysis:
+                elements.append(Paragraph("<b>Agent Thought / Reasoning:</b>", s["body"]))
+                elements.append(Paragraph(self._safe(ai_analysis).replace("\n", "<br/>"), s["evidence"]))
+
+            if tool_res and self.include_raw:
+                cmd = tool_res.get("command", "")
+                if cmd:
+                    elements.append(Paragraph(f"<b>Command:</b> {self._safe(cmd)}", s["body_dim"]))
+
+                stdout = str(tool_res.get("stdout", "") or "")
+                stderr = str(tool_res.get("stderr", "") or "")
+                
+                output = ""
+                if stdout:
+                    output += stdout
+                if stderr:
+                    output += f"\\n[STDERR]\\n{stderr}" if stdout else f"[STDERR]\\n{stderr}"
+
+                if output:
+                    if len(output) > 6000:
+                        output = output[:6000] + "\\n... [truncated]"
+                    elements.append(Paragraph(self._safe(output).replace("\\n", "<br/>").replace("\n", "<br/>"), s["evidence"]))
+
+            elements.append(Spacer(1, 0.4 * cm))
+
+        return elements
 
     # ── Page Footer ──────────────────────────────────────────────────────
 
