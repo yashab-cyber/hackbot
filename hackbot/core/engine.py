@@ -230,6 +230,30 @@ REQUIRED FORMAT — To run a command, you MUST include this JSON action block in
 {"action": "execute", "tool": "<tool_name>", "command": "<full_command>", "explanation": "<why>"}
 ```
 
+CRITICAL COMMAND RULES:
+- The "command" field MUST be a real shell command starting with the tool binary name.
+- Do NOT include "sudo" in the command — sudo is handled automatically by the system.
+- The "tool" field should match the binary name (e.g., "nmap", "nikto", "sqlmap").
+
+EXAMPLES of CORRECT commands:
+```json
+{"action": "execute", "tool": "nmap", "command": "nmap -sV -sC -T4 192.168.1.1", "explanation": "Full port scan with version detection and scripts"}
+```
+```json
+{"action": "execute", "tool": "dnsrecon", "command": "dnsrecon -d example.com -t std", "explanation": "Standard DNS enumeration"}
+```
+```json
+{"action": "execute", "tool": "nikto", "command": "nikto -h http://192.168.1.1", "explanation": "Web vulnerability scan"}
+```
+```json
+{"action": "execute", "tool": "gobuster", "command": "gobuster dir -u http://192.168.1.1 -w /usr/share/wordlists/dirb/common.txt", "explanation": "Directory bruteforce"}
+```
+
+EXAMPLES of WRONG commands (DO NOT do this):
+- ❌ "command": "sudo -n nmap -sV target"  (do NOT include sudo)
+- ❌ "command": "sudo -n --target 192.168.1.1 --output json"  (missing tool name)
+- ❌ "command": "-sV -sC 192.168.1.1"  (missing tool binary at start)
+
 To report a finding:
 ```json
 {"action": "finding", "title": "<title>", "severity": "<Critical|High|Medium|Low|Info>", "description": "<details>", "evidence": "<output>", "recommendation": "<fix>"}

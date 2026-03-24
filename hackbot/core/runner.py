@@ -157,15 +157,62 @@ class ToolRunner:
             if body:
                 cmd = body[0]
 
+        # Strip surrounding inline backticks (must come before $ prompt check).
+        if len(cmd) >= 2 and cmd[0] == "`" and cmd[-1] == "`":
+            cmd = cmd[1:-1].strip()
+
         # Strip shell prompt prefixes commonly emitted by LLMs.
         if cmd.startswith("$ "):
             cmd = cmd[2:].strip()
 
-        # Strip surrounding inline backticks.
-        if len(cmd) >= 2 and cmd[0] == "`" and cmd[-1] == "`":
-            cmd = cmd[1:-1].strip()
+        # Strip any AI-generated sudo prefix so _apply_sudo() can handle it
+        # cleanly and consistently.  This prevents the double-sudo problem
+        # where the AI emits "sudo -n nmap ..." and _apply_sudo adds another.
+        cmd = self._strip_sudo_prefix(cmd)
 
         return cmd
+
+    @staticmethod
+    def _strip_sudo_prefix(command: str) -> str:
+        """Remove a leading ``sudo [-flags]`` from *command*.
+
+        This is used during normalization so that ``_apply_sudo`` is the single
+        authority on whether to prepend sudo.  The stripping handles common
+        patterns emitted by LLMs:
+          - ``sudo nmap …``
+          - ``sudo -n nmap …``
+          - ``sudo -S nmap …``
+          - ``sudo -n -u root nmap …``
+        """
+        parts = command.split()
+        if not parts or parts[0] != "sudo":
+            return command
+
+        # sudo options that consume a following argument token
+        takes_arg = {
+            "-A", "-a", "-C", "-c", "-g", "-h", "-p", "-R", "-r", "-t", "-U", "-u",
+            "--askpass", "--chdir", "--close-from", "--group", "--host", "--prompt",
+            "--chroot", "--role", "--type", "--other-user", "--user",
+        }
+
+        idx = 1
+        while idx < len(parts):
+            token = parts[idx]
+            if token == "--":
+                idx += 1
+                break
+            if token.startswith("-"):
+                if token in takes_arg:
+                    idx += 2
+                else:
+                    idx += 1
+                continue
+            break
+
+        if idx >= len(parts):
+            return command  # nothing left after stripping — return original
+
+        return " ".join(parts[idx:])
 
     def _infer_tool_name(self, command: str, tool_name: str = "") -> str:
         """Resolve a stable tool label for result reporting."""
@@ -211,13 +258,18 @@ class ToolRunner:
 
         Handles sudo-prefixed commands with sudo options (for example
         ``sudo -n nmap ...``) so validation checks the intended tool rather
-        than a sudo flag token.
+        than a sudo flag token.  Also handles nested sudo (e.g.,
+        ``sudo -n sudo -n nmap``) and rejects flag-like tokens (``--target``)
+        that clearly aren't tool names.
         """
         if not parts:
             return ""
 
         first = os.path.basename(parts[0])
         if first != "sudo":
+            # Reject flag-like tokens as tool names (malformed AI commands)
+            if first.startswith("-"):
+                return ""
             return first
 
         # sudo options that consume a following argument token
@@ -249,7 +301,17 @@ class ToolRunner:
         if idx >= len(parts):
             return ""
 
-        return os.path.basename(parts[idx])
+        candidate = os.path.basename(parts[idx])
+
+        # Handle nested sudo (e.g., sudo -n sudo -n nmap ...)
+        if candidate == "sudo":
+            return self._extract_validated_tool(parts[idx:])
+
+        # Reject flag-like tokens that are clearly not tool names
+        if candidate.startswith("-"):
+            return ""
+
+        return candidate
 
     def validate_command(self, command: str) -> tuple[bool, str]:
         """

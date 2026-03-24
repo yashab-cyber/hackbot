@@ -224,3 +224,50 @@ def test_tool_allowed_via_resolved_alias(monkeypatch):
 
     monkeypatch.setattr("hackbot.core.runner.resolve_tool_path", fake_resolve)
     assert r.is_tool_allowed("alive6")
+
+
+# ── New tests for double-sudo, malformed commands, and sudo stripping ──
+
+
+def test_validate_double_sudo_command(runner):
+    """Double-sudo commands should be normalized and the real tool extracted."""
+    is_safe, reason = runner.validate_command("sudo -n nmap -sV 192.168.1.1")
+    assert is_safe
+    assert reason == "OK"
+
+
+def test_validate_nested_sudo(runner):
+    """Nested sudo (sudo -n sudo -n nmap) should resolve to the real tool."""
+    is_safe, reason = runner.validate_command("sudo -n sudo -n nmap -sV target")
+    assert is_safe
+    assert reason == "OK"
+
+
+def test_validate_malformed_flags_only():
+    """Command with only flags and no tool binary should be rejected."""
+    r = ToolRunner(allowed_tools=["nmap", "dnsrecon"], timeout=10)
+    is_safe, reason = r.validate_command("--target 192.168.1.1 --output json")
+    assert not is_safe
+
+
+def test_strip_sudo_prefix():
+    """_strip_sudo_prefix should remove sudo and its flags."""
+    assert ToolRunner._strip_sudo_prefix("sudo -n nmap -sV target") == "nmap -sV target"
+    assert ToolRunner._strip_sudo_prefix("sudo -S nmap 10.0.0.1") == "nmap 10.0.0.1"
+    assert ToolRunner._strip_sudo_prefix("sudo nmap 10.0.0.1") == "nmap 10.0.0.1"
+    assert ToolRunner._strip_sudo_prefix("sudo -n -u root nmap 10.0.0.1") == "nmap 10.0.0.1"
+    assert ToolRunner._strip_sudo_prefix("nmap 10.0.0.1") == "nmap 10.0.0.1"  # no-op
+    assert ToolRunner._strip_sudo_prefix("sudo -- nmap 10.0.0.1") == "nmap 10.0.0.1"
+
+
+def test_normalize_strips_sudo(runner):
+    """_normalize_command should strip AI-generated sudo prefix."""
+    assert runner._normalize_command("sudo -n nmap -sV 10.0.0.1") == "nmap -sV 10.0.0.1"
+    assert runner._normalize_command("sudo -S dnsrecon -d example.com") == "dnsrecon -d example.com"
+
+
+def test_validate_sudo_only_no_tool():
+    """sudo with only flags and no actual tool should be rejected."""
+    r = ToolRunner(allowed_tools=["nmap"], timeout=10)
+    is_safe, reason = r.validate_command("sudo -n")
+    assert not is_safe

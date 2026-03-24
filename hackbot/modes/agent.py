@@ -769,6 +769,19 @@ Explain your reasoning at each step."""
         tool = action.get("tool", command.split()[0] if command else "unknown")
         explanation = action.get("explanation", "")
 
+        # ── Sanitize command before execution ──────────────────────────
+        # Strip any AI-generated sudo prefix — the runner's _apply_sudo()
+        # will re-add it if sudo_mode is enabled.
+        command = ToolRunner._strip_sudo_prefix(command.strip())
+
+        # If the command still has no recognizable tool binary (e.g., the
+        # AI emitted just flags like "--target 1.2.3.4"), reconstruct it
+        # using the tool field from the JSON action block.
+        if command:
+            first_token = command.split()[0]
+            if first_token.startswith("-") and tool and tool not in ("unknown", "sudo"):
+                command = f"{tool} {command}"
+
         # Track command execution count for loop prevention
         cmd_key = command.strip()
         self._command_history[cmd_key] = self._command_history.get(cmd_key, 0) + 1
