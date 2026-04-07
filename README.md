@@ -70,9 +70,10 @@
 | 🧩 **Custom Plugins** | Python plugin system — register your own scripts as agent-callable tools |
 | 🔧 **AI Remediation Engine** | Auto-generate fix commands, config patches, and code snippets for each finding |
 | 🔌 **HTTP Proxy / Traffic Capture** | Built-in intercepting proxy for capturing, inspecting, replaying, and flagging web traffic |
+| 🔬 **Zero-Day Discovery Engine** | Proactive vulnerability research with response anomaly detection, smart fuzzing, exploit chain analysis, version gap analysis |
 | 🧠 **Memory & Sessions** | Auto-save conversations, session history, `/continue` truncated responses, conversation summarization |
 | 🌍 **10 AI Providers** | OpenAI, Anthropic, Google Gemini, Groq, Mistral, DeepSeek, Together AI, OpenRouter, Ollama, Local |
-| 🔧 **30+ Tool Integrations** | nmap, nikto, sqlmap, nuclei, ffuf, subfinder, hydra, gobuster, and more |
+| 🔧 **50+ Tool Integrations** | nmap, nikto, sqlmap, nuclei, ffuf, subfinder, hydra, gobuster, wpscan, dalfox, commix, and more |
 | 📊 **Auto Reporting** | HTML, Markdown, JSON, and professional PDF reports with executive summary, risk matrix, charts |
 | 🛡️ **Safe Mode** | Command validation, blocked dangerous commands, risky-command confirmation prompts |
 | 💻 **Cross-Platform** | Linux, macOS, Windows — pip install, Docker, or one-line installer |
@@ -135,6 +136,7 @@ sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.
 - **Plugin manager** — Browse, reload, and execute custom plugins with argument inputs and live output
 - **Remediation panel** — One-click fix generation for findings with copyable commands, config patches, and code snippets
 - **Proxy panel** — Start/stop the intercepting proxy, view traffic table, filter by method/keyword, set domain scope, replay requests, and view flagged security-relevant traffic
+- **Zero-day discovery** — Auto-detects anomaly signals in every tool output, supports smart fuzzing (150+ payloads, 12 categories), and builds exploit chains from findings
 - **PDF export** — One-click professional PDF report generation with charts and executive summary from the agent panel
 - **Markdown rendering** — Full markdown support with syntax highlighting in responses
 - **Native OS window** — Powered by pywebview for a true desktop application feel
@@ -424,6 +426,9 @@ The Agent Mode is the core feature. It autonomously:
 - **Maps findings to compliance frameworks** automatically after assessment
 - **Maps findings to MITRE ATT&CK** techniques and tactics
 - **Stores findings** in a persistent vulnerability database with risk scoring
+- **Zero-day hunting** — auto-analyzes every tool output for anomaly signals (stack traces, error leaks, memory addresses, injection points)
+- **Smart fuzzing** — AI-driven fuzzing with 150+ payloads across 12 categories (SSTI, SSRF, XXE, deserialization, etc.)
+- **Exploit chain analysis** — combines multiple low/medium findings into high-impact attack paths
 
 ```bash
 # Start directly
@@ -535,6 +540,27 @@ hackbot plan example.com --type web_pentest
 ---
 
 ## 🛡️ Intelligence Modules
+
+### 🔬 Zero-Day Discovery Engine
+
+Proactive vulnerability research engine that goes beyond known CVE scanning to find undisclosed vulnerabilities.
+
+**Capabilities:**
+| Feature | Description |
+|---------|-------------|
+| **Response Anomaly Detection** | 40+ regex patterns across 7 categories: stack traces, error leaks, path disclosures, debug info, memory addresses, auth leaks, injection signals |
+| **Smart Fuzz Payloads** | 150+ payloads in 12 categories: buffer overflow, integer overflow, path traversal, SSTI, SSRF, deserialization, command injection, XSS, header injection, XXE, request smuggling, race conditions |
+| **Exploit Chain Builder** | Analyzes multiple findings to propose chained attack paths (e.g., SSRF→Internal Service→RCE, SQLi→File Write→WebShell) |
+| **Version Gap Analysis** | Identifies software where the exact version has no known CVE but nearby versions do — flags zero-day candidates |
+| **Auto-Enrichment** | Every tool execution output is automatically scanned for anomaly signals and zero-day indicators |
+| **Timing Analysis** | Detects response time anomalies that suggest blind injection points |
+
+**Agent Actions:**
+```json
+{"action": "fuzz", "target_url": "<url>", "parameter": "<param>", "categories": ["xss","ssti","ssrf"]}
+{"action": "analyze_anomaly", "response_body": "<suspicious_output>", "context": "<description>"}
+{"action": "chain_exploits", "explanation": "Analyze findings for exploit chains"}
+```
 
 ### CVE/Exploit Lookup
 

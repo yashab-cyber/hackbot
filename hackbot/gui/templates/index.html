@@ -345,7 +345,9 @@ textarea#agentInput{min-height:56px}
       <h2>🤖 Start Security Assessment</h2>
       <p style="color:var(--text-dim);text-align:center;max-width:500px">
         The agent will autonomously plan and execute a penetration test against the target.
-        It runs real security tools and adapts its strategy based on results.
+        It runs real security tools, adapts its strategy based on results, and uses the
+        <strong>Zero-Day Discovery Engine</strong> to detect anomalies, run smart fuzzing,
+        and build exploit chains from findings.
       </p>
       <div class="agent-form">
         <div class="form-group">
@@ -1238,7 +1240,7 @@ async function agentStep() {
   const input = document.getElementById('agentInput');
   const msg = input ? input.value.trim() : '';
   if (msg) {
-    addMsg('agentMessages', 'user', msg);
+    addMsg('agentThoughts', 'user', msg);
     input.value = '';
     input.style.height = 'auto';
   }
@@ -1255,11 +1257,11 @@ async function agentStep() {
       });
       const data = await resp.json();
       const status = data.success ? '✅ SUCCESS' : '❌ FAILED';
-      addMsg('agentMessages', 'assistant',
+      addMsg('agentThoughts', 'assistant',
         `**\`${cmd}\`** — ${status} (exit=${data.return_code}, ${data.duration}s)\n\`\`\`\n${data.stdout || data.stderr || '(no output)'}\n\`\`\``
       );
     } catch (e) {
-      addMsg('agentMessages', 'assistant', `**Error:** ${e.message}`);
+      addMsg('agentThoughts', 'assistant', `**Error:** ${e.message}`);
     }
     return;
   }
@@ -1325,7 +1327,7 @@ async function continueAgent() {
 
   await streamSSE('/api/agent/continue',
     {},
-    'agentMessages',
+    'agentThoughts',
     {
       onMeta: (data) => {
         if (data.complete) {
@@ -1343,8 +1345,8 @@ async function agentStop() {
     const resp = await fetch('/api/agent/stop', { method: 'POST' });
     const data = await resp.json();
     agentRunning = false;
-    addMsg('agentMessages', 'system', 'Assessment stopped.', true);
-    if (data.summary) addMsg('agentMessages', 'assistant', data.summary);
+    addMsg('agentThoughts', 'system', 'Assessment stopped.', true);
+    if (data.summary) addMsg('agentThoughts', 'assistant', data.summary);
     toast('Assessment stopped', 'success');
   } catch (e) {
     toast('Failed to stop: ' + e.message, 'error');
@@ -2452,20 +2454,22 @@ async function startActiveCampaign() {
 async function startCampaignTarget(target) {
   // Switch to agent panel to show the assessment
   switchPanel('agent');
-  const messages = document.getElementById('agentMessages');
+  const messages = document.getElementById('agentThoughts');
   const startForm = document.getElementById('agentStartForm');
+  const execView = document.getElementById('agentExecutionView');
   const inputArea = document.getElementById('agentInputArea');
   if (startForm) startForm.style.display = 'none';
-  if (messages) { messages.style.display = 'flex'; messages.innerHTML = ''; }
-  if (inputArea) inputArea.style.display = 'flex';
+  if (execView) execView.style.display = 'flex';
+  if (messages) { messages.innerHTML = ''; }
+  if (inputArea) inputArea.style.display = 'block';
   document.getElementById('agentTargetLabel').textContent = '🎯 Campaign: ' + target;
 
   agentRunning = true;
   const msgDiv = document.createElement('div');
-  msgDiv.className = 'message assistant';
-  msgDiv.innerHTML = '<div class="message-content"></div>';
-  messages.appendChild(msgDiv);
-  const contentDiv = msgDiv.querySelector('.message-content');
+  msgDiv.className = 'msg msg-assistant';
+  msgDiv.innerHTML = '<div class="msg-label">HackBot</div><div class="msg-bubble"></div>';
+  if (messages) messages.appendChild(msgDiv);
+  const contentDiv = msgDiv.querySelector('.msg-bubble');
 
   try {
     const resp = await fetch('/api/campaigns/active/start-target', {

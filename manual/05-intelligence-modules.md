@@ -1,6 +1,75 @@
 # 5. Intelligence Modules
 
-HackBot includes 9 built-in intelligence modules that extend beyond basic scanning.
+HackBot includes 10 built-in intelligence modules that extend beyond basic scanning.
+
+---
+
+## 🔬 Zero-Day Discovery Engine
+
+Proactive vulnerability research engine that goes beyond known CVE scanning to find undisclosed vulnerabilities.
+
+### How It Works
+
+The Zero-Day Engine is integrated directly into Agent Mode and runs automatically:
+1. **Every tool output** is auto-scanned for anomaly signals (stack traces, error leaks, memory addresses, etc.)
+2. The AI agent can invoke **smart fuzzing** against discovered endpoints
+3. After collecting findings, the agent can build **exploit chains** combining multiple vulns
+4. **Version gap analysis** flags services where the exact version has no known CVE but nearby versions do
+
+### Anomaly Detection Categories
+
+| Category | Severity | What It Detects |
+|----------|----------|----------------|
+| `stack_trace` | High | Python, Java, PHP, .NET, Node.js, Go stack traces and panics |
+| `error_leak` | Medium | SQL errors, database error messages, SQLSTATE codes, protocol errors |
+| `path_disclosure` | Medium | Unix/Windows file path leaks, web server config paths, Java webapp internals |
+| `debug_info` | High | Debug headers, debug mode flags, phpinfo, framework debuggers (Werkzeug, Django) |
+| `memory_address` | Critical | Memory address leaks (defeats ASLR), crash signals, sanitizer output |
+| `auth_leak` | Critical | API keys, passwords, private keys, AWS credentials, JWT tokens in responses |
+| `injection_signal` | High | Confirmed SQL injection, command injection, /etc/passwd leaks, config file content |
+
+### Smart Fuzz Payload Categories
+
+| Category | Payloads | Purpose |
+|----------|----------|--------|
+| `buffer_overflow` | 14 | Memory corruption, format string attacks |
+| `integer_overflow` | 20 | Integer boundary values and overflow conditions |
+| `path_traversal` | 14 | Directory traversal with encoding bypasses and null bytes |
+| `template_injection` | 14 | SSTI for Jinja2, FreeMarker, Twig, Handlebars, etc. |
+| `ssrf` | 16 | Internal service access, cloud metadata, protocol smuggling |
+| `deserialization` | 7 | Java, PHP, Python pickle, Node.js prototype pollution |
+| `command_injection` | 20 | OS command injection with various escape techniques |
+| `xss` | 12 | Cross-site scripting with filter bypasses |
+| `header_injection` | 6 | CRLF injection, response splitting |
+| `xxe` | 4 | XML External Entity injection |
+| `request_smuggling` | 2 | HTTP request smuggling (CL.TE, TE.CL) |
+| `race_condition` | 2 | Concurrent request test markers |
+
+### Agent Action Types
+
+The AI agent can use these actions during assessments:
+
+```json
+{"action": "fuzz", "target_url": "http://target.com/api", "parameter": "search", "categories": ["xss","command_injection","template_injection"], "explanation": "Testing search parameter for injection"}
+```
+
+```json
+{"action": "analyze_anomaly", "response_body": "<suspicious response text>", "context": "Received after sending special chars to login", "explanation": "Analyzing error response for exploitable signals"}
+```
+
+```json
+{"action": "chain_exploits", "explanation": "Analyze current findings for exploit chains"}
+```
+
+### Exploit Chain Types
+
+The engine can identify these attack chains:
+- **SSRF → Internal Service Access → RCE** — Use SSRF to reach internal Redis/Docker/etc.
+- **SQL Injection → File Write → WebShell** — Write webshell via INTO OUTFILE
+- **LFI → Log Poisoning → RCE** — Poison logs then include via LFI
+- **XSS → CSRF → Account Takeover** — Chain stored XSS with missing CSRF
+- **Info Disclosure → Credential Attack** — Use leaked usernames for brute-force
+- **Open Redirect → Phishing** — Abuse trusted domain for credential theft
 
 ---
 

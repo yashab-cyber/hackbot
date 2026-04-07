@@ -28,6 +28,7 @@ from hackbot.config import HackBotConfig, REPORTS_DIR
 from hackbot.core.cve import CVELookup
 from hackbot.core.engine import AIEngine, Conversation, create_conversation
 from hackbot.core.runner import ToolResult, ToolRunner
+from hackbot.core.zeroday import ZeroDayEngine
 from hackbot.core.vulndb import VulnDB
 from hackbot.memory import ConversationSummarizer, MemoryManager, CONTINUE_PROMPT
 
@@ -180,6 +181,9 @@ class AgentMode:
         # CVE / NVD intelligence engine
         self.cve_engine = CVELookup(nvd_api_key=config.agent.nvd_api_key)
 
+        # Zero-day discovery engine
+        self.zeroday = ZeroDayEngine()
+
         # Memory & summarization
         self.memory = MemoryManager()
         self.session_id = self.memory.new_session_id("agent")
@@ -240,6 +244,8 @@ class AgentMode:
 - Unavailable Tools: {', '.join(not_installed) if not_installed else 'None'}
 - Max Steps: {self.config.agent.max_steps}
 - NVD CVE Intelligence: {'Enabled (API key configured — fast rate limit)' if self.config.agent.nvd_api_key else 'Enabled (no API key — slower rate limit)'}
+- Zero-Day Engine: Enabled (response anomaly detection, smart fuzzing, exploit chain analysis)
+- Fuzz Payload Categories: {', '.join(c['name'] for c in self.zeroday.get_payload_categories())}
 """
 
         # Add custom plugin context
@@ -608,6 +614,15 @@ Explain your reasoning at each step."""
                     ai_analysis_clean = self._extract_thoughts(ai_response_text)
                     report_result = self._generate_report(action, ai_analysis=ai_analysis_clean)
                     results_text.append(report_result)
+                elif atype == "fuzz":
+                    fuzz_result = self._process_fuzz_action(action)
+                    results_text.append(fuzz_result)
+                elif atype == "analyze_anomaly":
+                    anomaly_result = self._process_anomaly_action(action)
+                    results_text.append(anomaly_result)
+                elif atype == "chain_exploits":
+                    chain_result = self._process_chain_action()
+                    results_text.append(chain_result)
                 elif atype == "complete":
                     ai_analysis_clean = self._extract_thoughts(ai_response_text)
                     step = AgentStep(
@@ -679,7 +694,7 @@ Explain your reasoning at each step."""
     def _parse_actions(self, text: str) -> List[Dict[str, Any]]:
         """Extract JSON action blocks from AI response."""
         actions: List[Dict[str, Any]] = []
-        allowed_actions = {"execute", "finding", "script", "complete", "generate_report"}
+        allowed_actions = {"execute", "finding", "script", "complete", "generate_report", "fuzz", "analyze_anomaly", "chain_exploits"}
         decoder = json.JSONDecoder()
         seen_spans: set[tuple[int, int]] = set()
 
@@ -813,6 +828,14 @@ Explain your reasoning at each step."""
             if cve_intel:
                 output += f"\n\n{cve_intel}"
 
+        # Auto zero-day anomaly analysis on all tool output
+        try:
+            zeroday_intel = self.zeroday.enrich_tool_output(result.output, tool_name=tool)
+            if zeroday_intel:
+                output += f"\n\n{zeroday_intel}"
+        except Exception as exc:
+            logger.debug("Zero-day enrichment failed: %s", exc)
+
         return output, result
 
     def _save_script(self, action: Dict[str, Any], ai_analysis: str = "") -> str:
@@ -944,6 +967,149 @@ Explain your reasoning at each step."""
             "CVE enrichment: %d vulns across %d services (%d high/critical)",
             total, len(service_cves), high_crit,
         )
+
+        return report
+
+    # ── Zero-Day Action Handlers ─────────────────────────────────────
+
+    def _process_fuzz_action(self, action: Dict[str, Any]) -> str:
+        """Process a fuzz action from the AI agent."""
+        target_url = action.get("target_url", "").strip()
+        parameter = action.get("parameter", "").strip()
+        categories = action.get("categories", [])
+        explanation = action.get("explanation", "Smart fuzzing")
+
+        if not target_url:
+            return "**[Fuzz]** FAILED: target_url is required."
+
+        # Get payloads
+        payloads: list = []
+        if categories:
+            for cat in categories[:5]:  # Max 5 categories
+                payloads.extend(self.zeroday.get_fuzz_payloads(category=cat, max_payloads=10))
+        else:
+            payloads = self.zeroday.get_fuzz_payloads(max_payloads=30)
+
+        step = AgentStep(
+            step_num=len(self.steps) + 1,
+            action="fuzz",
+            description=f"Fuzzing {target_url} (param: {parameter or 'body'}, {len(payloads)} payloads)",
+        )
+        self.steps.append(step)
+        if self.on_step:
+            self.on_step(step)
+
+        # Run fuzzing via curl for each payload (capped for safety)
+        results_text = [
+            f"**[Fuzz]** Testing {len(payloads)} payloads against `{target_url}`\n",
+            f"Parameter: `{parameter or 'request body'}` | Categories: {', '.join(categories) or 'all'}\n",
+        ]
+
+        interesting_count = 0
+        anomaly_count = 0
+        for i, payload in enumerate(payloads[:20]):  # Cap at 20 for performance
+            # Use curl to send the payload
+            safe_payload = payload.replace("'", "'\\''")
+            if parameter:
+                cmd = f"curl -sk -o /dev/null -w '%{{http_code}} %{{time_total}} %{{size_download}}' -d '{parameter}={safe_payload}' '{target_url}'"
+            else:
+                cmd = f"curl -sk -o /dev/null -w '%{{http_code}} %{{time_total}} %{{size_download}}' -d '{safe_payload}' '{target_url}'"
+
+            result = self.runner.execute(cmd, tool_name="curl", explanation=f"Fuzz payload {i+1}/{len(payloads)}")
+
+            if result.success and result.stdout.strip():
+                parts = result.stdout.strip().split()
+                status = parts[0] if parts else "0"
+                resp_time = parts[1] if len(parts) > 1 else "0"
+                resp_size = parts[2] if len(parts) > 2 else "0"
+
+                # Check for anomalous responses
+                is_interesting = status in ("500", "502", "503") or float(resp_time) > 5.0
+                if is_interesting:
+                    interesting_count += 1
+                    results_text.append(
+                        f"  ⚠️ **Payload {i+1}**: status={status} time={resp_time}s size={resp_size} "
+                        f"payload=`{payload[:60]}...`"
+                    )
+
+        results_text.append(f"\n**Summary:** {interesting_count} interesting responses out of {min(len(payloads), 20)} tested")
+        if interesting_count > 0:
+            results_text.append("⚠️ Interesting responses detected — investigate manually with full response body.")
+
+        return "\n".join(results_text)
+
+    def _process_anomaly_action(self, action: Dict[str, Any]) -> str:
+        """Process an analyze_anomaly action from the AI agent."""
+        response_body = action.get("response_body", "")
+        context = action.get("context", "")
+
+        if not response_body:
+            return "**[Anomaly Analysis]** FAILED: response_body is required."
+
+        anomalies = self.zeroday.analyze_response(response_body)
+
+        step = AgentStep(
+            step_num=len(self.steps) + 1,
+            action="analyze_anomaly",
+            description=f"Anomaly analysis: {len(anomalies)} signals found ({context[:50]})",
+        )
+        self.steps.append(step)
+        if self.on_step:
+            self.on_step(step)
+
+        if not anomalies:
+            return f"**[Anomaly Analysis]** No anomaly signals detected in the response.\nContext: {context}"
+
+        # Auto-record high-severity anomalies as findings
+        from hackbot.core.zeroday import ZeroDayEngine
+        report = ZeroDayEngine.format_anomalies_report(anomalies)
+
+        for a in anomalies:
+            if a.severity in ("Critical", "High") and a.confidence >= 0.7:
+                finding = Finding(
+                    title=f"Zero-Day Signal: {a.indicator}",
+                    severity=Severity.HIGH if a.severity == "High" else Severity.CRITICAL,
+                    description=a.description,
+                    evidence=a.evidence,
+                    recommendation=a.exploit_potential,
+                    tool="zeroday-engine",
+                )
+                self.findings.append(finding)
+
+        return f"**[Anomaly Analysis]** {len(anomalies)} signals detected:\n\n{report}"
+
+    def _process_chain_action(self) -> str:
+        """Process a chain_exploits action — build exploit chains from current findings."""
+        if not self.findings:
+            return "**[Exploit Chains]** No findings available to build chains from."
+
+        findings_dicts = [f.to_dict() for f in self.findings]
+        chains = self.zeroday.build_exploit_chains(findings_dicts)
+
+        step = AgentStep(
+            step_num=len(self.steps) + 1,
+            action="chain_exploits",
+            description=f"Exploit chain analysis: {len(chains)} chains identified",
+        )
+        self.steps.append(step)
+        if self.on_step:
+            self.on_step(step)
+
+        from hackbot.core.zeroday import ZeroDayEngine
+        report = ZeroDayEngine.format_chains_report(chains)
+
+        # Record critical chains as findings
+        for chain in chains:
+            if chain.overall_severity == "Critical":
+                finding = Finding(
+                    title=f"Exploit Chain: {chain.title}",
+                    severity=Severity.CRITICAL,
+                    description=chain.overall_impact,
+                    evidence=f"Chain: {' → '.join(s['finding'] for s in chain.chain_steps)}",
+                    recommendation=", ".join(chain.mitigations),
+                    tool="zeroday-engine",
+                )
+                self.findings.append(finding)
 
         return report
 

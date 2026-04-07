@@ -62,11 +62,14 @@ Autonomous penetration testing — the AI plans, executes tools, analyzes result
    - **Reconnaissance** → Gather information
    - **Scanning** → Port/service discovery
    - **Enumeration** → Detailed service probing
+   - **Zero-Day Analysis** → Anomaly detection, smart fuzzing, version gap analysis
    - **Exploitation** → Vulnerability verification
    - **Post-Exploitation** → Impact assessment
+   - **Exploit Chaining** → Combine findings into high-impact attack paths
    - **Reporting** → Generate findings report
 3. At each step, the AI decides which tool to run, executes it, and analyzes the output
-4. Findings are tracked with severity ratings
+4. Every tool output is auto-scanned for zero-day signals (stack traces, error leaks, memory addresses)
+5. Findings are tracked with severity ratings
 
 ### Starting Agent Mode
 ```

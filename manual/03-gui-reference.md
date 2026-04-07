@@ -71,7 +71,7 @@ Interactive cybersecurity Q&A with streaming AI responses.
 
 ### 🤖 Agent Panel
 
-Autonomous security testing with real tool execution.
+Autonomous security testing with real tool execution and zero-day discovery.
 
 | Element | Function |
 |---------|----------|
@@ -86,12 +86,18 @@ Autonomous security testing with real tool execution.
 | Export buttons | HTML, Markdown, JSON, PDF report export |
 | Remediate button | Generate fix commands for findings |
 
+**Zero-Day Discovery Features (automatic):**
+- 🔬 Every tool output is auto-analyzed for anomaly signals (stack traces, error leaks, memory addresses)
+- 🧪 AI can invoke smart fuzzing with 150+ payloads across 12 categories
+- ⛓️ Exploit chain analysis combines multiple findings into critical attack paths
+- 📊 Zero-day candidate signals appear in the Agent Thoughts panel
+
 **How to use:**
 1. Enter a target (e.g., `10.0.0.1` or `example.com`)
 2. Optionally set scope and instructions
 3. Click "Start" — the agent autonomously runs tools and analyzes results
-4. Watch the streaming output as tools execute
-5. Click "Findings" to see discovered vulnerabilities
+4. Watch the streaming output as tools execute — zero-day signals auto-appear
+5. Click "Findings" to see discovered vulnerabilities (including zero-day candidates)
 6. Click "Export" or "PDF" to generate reports
 
 ---
