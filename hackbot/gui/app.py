@@ -1919,6 +1919,14 @@ def launch_gui(config: HackBotConfig, host: str = "127.0.0.1", port: int = 1337)
     try:
         import webview  # pywebview
 
+        # ── GPU workaround for Raspberry Pi / low-end GPUs ──────────────
+        # The Pi's Mesa driver doesn't expose GL_EXT_shader_texture_lod,
+        # which causes dozens of shader compilation errors and crashes in
+        # the WebKit/GTK compositing path.  Force software rendering so
+        # the embedded webview never touches the hardware GL driver.
+        os.environ.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
+        os.environ.setdefault("WEBKIT_DISABLE_COMPOSITING_MODE", "1")
+
         # Start Flask server in background thread
         flask_thread = threading.Thread(
             target=_start_flask, args=(host, port), daemon=True
