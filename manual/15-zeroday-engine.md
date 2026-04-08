@@ -1,6 +1,6 @@
 # 15. Zero-Day Discovery Engine
 
-HackBot's Zero-Day Discovery Engine is a proactive vulnerability research module that goes beyond known CVE scanning. It uses response anomaly detection, intelligent fuzzing, exploit chain analysis, and version gap analysis to identify undisclosed vulnerabilities.
+HackBot's Zero-Day Discovery Engine is a proactive vulnerability research module that goes beyond known CVE scanning. It uses response anomaly detection, intelligent fuzzing, exploit chain analysis, version gap analysis, and now includes **active scanning with HTTP client integration, stateful fuzzing, AI-driven reasoning, target mapping, and parallel execution**.
 
 ---
 
@@ -11,28 +11,274 @@ The Zero-Day Engine is integrated directly into Agent Mode and operates at three
 1. **Passive Analysis** — Every tool output is automatically scanned for anomaly signals
 2. **Active Testing** — The AI agent can invoke smart fuzzing against discovered endpoints
 3. **Strategic Analysis** — Findings are combined into exploit chains for maximum impact assessment
+4. **Autonomous Attack** — Full crawl → map → fuzz → analyze loop with AI-driven decisions
 
 ### Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   Agent Mode                             │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────────┐  │
-│  │ Tool Run │──│ Auto-Enrich  │──│  AI Decision Loop │  │
-│  │ (nmap,   │  │ (anomaly     │  │  (next action)    │  │
-│  │  nikto)  │  │  detection)  │  │                   │  │
-│  └──────────┘  └──────────────┘  └───────────────────┘  │
-│                        │                    │            │
-│                        ▼                    ▼            │
-│              ┌─────────────────┐  ┌──────────────────┐  │
-│              │ ZeroDayEngine   │  │ Agent Actions     │  │
-│              │ • analyze()     │  │ • fuzz            │  │
-│              │ • fuzz()        │  │ • analyze_anomaly │  │
-│              │ • chain()       │  │ • chain_exploits  │  │
-│              │ • version_gap() │  │                   │  │
-│              └─────────────────┘  └──────────────────┘  │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                        ActiveScanLoop                                │
+│                                                                      │
+│   ┌──────────────┐     ┌────────────────┐     ┌─────────────────┐   │
+│   │ TargetMapper │────▶│ AIReasoningLayer│────▶│ StatefulFuzzer  │   │
+│   │ • crawl()    │     │ • decide_next() │     │ • fuzz()        │   │
+│   │ • map_forms()│     │ • score_target()│     │ • maintain_auth │   │
+│   │ • find_apis()│     │ • pivot()       │     │ • track_csrf()  │   │
+│   └──────────────┘     └────────────────┘     └─────────────────┘   │
+│          │                    │                        │              │
+│          │                    ▼                        │              │
+│          │            ┌──────────────┐                │              │
+│          │            │  HttpClient  │◀───────────────┘              │
+│          │            │ • sessions   │                               │
+│          │            │ • cookies    │                               │
+│          │            │ • baselines  │                               │
+│          │            └──────────────┘                               │
+│          │                    │                                       │
+│          ▼                    ▼                                       │
+│   ┌──────────────────────────────────┐    ┌─────────────────────┐   │
+│   │ ParallelExecutor                 │    │ ZeroDayEngine       │   │
+│   │ • race_test()                    │───▶│ • analyze_response()│   │
+│   │ • parallel_fuzz()               │    │ • build_chains()    │   │
+│   │ • ThreadPool(max=10)            │    │ • enrich_output()   │   │
+│   └──────────────────────────────────┘    └─────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Auto-Request Engine (HttpClient)
+
+The `HttpClient` provides session-aware HTTP communication that persists cookies, auth tokens, and tracks response baselines.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| Session persistence | Cookies and auth tokens maintained across all requests |
+| Response baselines | Auto-calculates average response time/length per endpoint |
+| Retry logic | Automatic retry on 502/503/504 with backoff |
+| Proxy support | Route all traffic through a proxy (e.g., Burp Suite) |
+| Connection pooling | Pooled connections sized to concurrency level |
+| Login support | `login()` method for form-based authentication |
+
+### Usage
+
+```python
+from hackbot.core.zeroday_active import HttpClient, ScanConfig
+
+config = ScanConfig(proxy="http://127.0.0.1:8080", request_delay=0.2)
+client = HttpClient(config)
+
+# Authenticate
+client.login("http://target.com/login", "admin", "password123")
+
+# Get baseline for an endpoint
+baseline = client.get_baseline("http://target.com/api/search")
+
+# Make requests (cookies and auth persist automatically)
+resp = client.get("http://target.com/api/users")
+resp = client.post("http://target.com/api/data", data={"key": "value"})
+```
+
+---
+
+## Target Mapping (Crawl → Map → Attack)
+
+The `TargetMapper` crawls a target website, extracts all endpoints, forms, parameters, and API routes, then scores them by attack interest.
+
+### Crawl Features
+
+- Recursive crawling with configurable depth (default: 3)
+- Same-domain restriction (default: on)
+- Form extraction with field types
+- JavaScript file discovery
+- Technology stack detection from headers and page content
+
+### Technology Detection
+
+Automatically detects: WordPress, Drupal, Joomla, Laravel, Django, Flask, Express, Rails, Spring, React, Angular, Vue.js, Next.js, GraphQL, and more.
+
+### Interest Scoring
+
+| Signal | Score |
+|--------|-------|
+| Auth endpoint (login, signin) | +3.0 |
+| File upload endpoint | +3.0 |
+| Admin panel | +3.0 |
+| API endpoint | +3.0 |
+| Search endpoint | +3.0 |
+| Each parameter | +1.5 |
+| Has forms | +2.0 |
+| Accepts POST | +1.5 |
+| Requires auth | +1.0 |
+
+### Agent Usage
+
+```json
+{"action": "map_target", "target_url": "http://target.com", "explanation": "Map attack surface before fuzzing"}
+```
+
+---
+
+## Stateful Fuzzing
+
+The `StatefulFuzzer` maintains full session state during fuzzing campaigns.
+
+### Session Management
+
+| Feature | Description |
+|---------|-------------|
+| Cookie persistence | All cookies maintained across fuzz iterations |
+| CSRF handling | Auto-detects and refreshes CSRF tokens every 10 requests |
+| Auth session | Login once, fuzz with authenticated session |
+| Baseline tracking | Per-parameter baseline for deviation detection |
+| Multi-step fuzzing | Inject in step 1, trigger in step 2 |
+
+### CSRF Token Detection
+
+Automatically detects common CSRF field patterns:
+- `csrf_token`, `_token`, `csrfmiddlewaretoken`
+- `__RequestVerificationToken`, `authenticity_token`
+- `<meta name="csrf-token">` tags
+
+### Anomaly Detection in Fuzzing
+
+Each fuzz response is automatically analyzed for:
+- **Status code anomalies**: 500, 502, 503 errors
+- **Length deviations**: >50% change from baseline
+- **Timing anomalies**: >3x baseline response time
+- **Pattern anomalies**: Stack traces, error leaks, injection signals
+
+### Agent Usage
+
+```json
+{
+  "action": "fuzz_stateful",
+  "target_url": "http://target.com/api/search",
+  "parameter": "q",
+  "method": "GET",
+  "categories": ["xss", "command_injection", "template_injection"],
+  "auth": {"username": "user", "password": "pass", "login_url": "http://target.com/login"},
+  "explanation": "Search parameter reflects input — testing with authenticated session"
+}
+```
+
+---
+
+## AI Reasoning Layer
+
+The `AIReasoningLayer` is a heuristic-based decision engine that chooses what to attack next based on accumulated data.
+
+### Decision Process
+
+1. **Score all untested endpoints** by interest level
+2. **Select payload categories** based on:
+   - Detected technology stack (e.g., Flask → template_injection, ssrf)
+   - Parameter name patterns (e.g., `url` → ssrf, path_traversal)
+   - Previous anomaly findings
+3. **Check for pivots** — escalate when:
+   - Injection signals confirmed → deeper exploitation
+   - Credentials leaked → credential testing
+   - Memory addresses leaked → buffer overflow testing
+4. **Return structured decision** with target, parameters, categories, and reasoning
+
+### Technology → Vulnerability Mapping
+
+| Technology | Priority Categories |
+|-----------|-------------------|
+| WordPress | xss, path_traversal, command_injection |
+| Django/Flask | template_injection, command_injection, ssrf |
+| Laravel | deserialization, command_injection, ssrf |
+| Spring | deserialization, ssrf, template_injection |
+| Express | template_injection, ssrf, command_injection |
+| GraphQL | command_injection, ssrf, xss |
+
+### Parameter Name → Category Mapping
+
+| Parameter Pattern | Priority Categories |
+|------------------|-------------------|
+| url, redirect, goto | ssrf, path_traversal |
+| file, path, template | path_traversal, template_injection |
+| cmd, exec, command | command_injection |
+| query, search, filter | xss, command_injection, template_injection |
+| xml, data, payload | xxe, deserialization |
+
+---
+
+## Parallel Execution
+
+The `ParallelExecutor` enables concurrent request sending for speed and race condition detection.
+
+### Race Condition Testing
+
+Sends N identical requests simultaneously using thread barriers to maximize temporal overlap:
+
+1. All threads reach a barrier point
+2. Barrier releases — all requests fire at the same instant
+3. Responses collected and analyzed for differences
+4. Different status codes or response bodies indicate TOCTOU vulnerability
+
+### Agent Usage
+
+```json
+{
+  "action": "race_test",
+  "target_url": "http://target.com/api/transfer",
+  "method": "POST",
+  "data": {"amount": "100", "to": "attacker"},
+  "count": 20,
+  "explanation": "Test money transfer for race condition — double-spend"
+}
+```
+
+### Parallel Fuzzing
+
+Multiple endpoints/parameters can be fuzzed concurrently:
+- Configurable concurrency (default: 10 threads)
+- Per-thread session management
+- Result aggregation across all threads
+
+---
+
+## Active Scan Loop
+
+The `ActiveScanLoop` orchestrates the full autonomous attack cycle.
+
+### Scan Phases
+
+1. **Authenticate** — Login if credentials provided
+2. **Crawl & Map** — Discover all endpoints via `TargetMapper`
+3. **Score & Prioritize** — Rank endpoints by `AIReasoningLayer`
+4. **Fuzz** — Test high-value targets with `StatefulFuzzer`
+5. **Analyze** — Detect anomalies via `ZeroDayEngine`
+6. **Decide** — AI chooses next action (fuzz, probe, pivot, or complete)
+7. **Chain** — Build exploit chains from combined findings
+8. **Report** — Generate comprehensive scan report
+
+### Agent Usage
+
+```json
+{
+  "action": "active_scan",
+  "target_url": "http://target.com",
+  "depth": 3,
+  "max_iterations": 20,
+  "explanation": "Full autonomous zero-day scan of web application"
+}
+```
+
+### Configuration
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| max_depth | 3 | Maximum crawl depth |
+| max_pages | 100 | Maximum pages to crawl |
+| max_fuzz_per_param | 50 | Maximum payloads per parameter |
+| max_iterations | 20 | Maximum scan loop iterations |
+| concurrency | 10 | Thread pool size for parallel execution |
+| request_timeout | 15s | HTTP request timeout |
+| request_delay | 0.1s | Delay between requests |
+| same_domain_only | true | Restrict crawling to target domain |
 
 ---
 
@@ -43,7 +289,7 @@ Every tool execution output is automatically analyzed for signals that indicate 
 ### Detection Categories
 
 | Category | Severity | Patterns | What It Detects |
-|----------|----------|----------|-----------------|
+|----------|----------|----------|-----------------| 
 | `stack_trace` | High | 9 | Python, Java, PHP, .NET, Node.js, Go stack traces, panics, segfaults |
 | `error_leak` | Medium | 8 | SQL syntax errors, database error codes, PDO/SQLSTATE, Oracle errors |
 | `path_disclosure` | Medium | 4 | Unix/Windows file paths, web server DocumentRoot, Java WEB-INF paths |
@@ -52,32 +298,9 @@ Every tool execution output is automatically analyzed for signals that indicate 
 | `auth_leak` | Critical | 5 | API keys, passwords, private keys, AWS credentials, JWT tokens |
 | `injection_signal` | High | 5 | Confirmed SQL injection, command injection, /etc/passwd content, XXE |
 
-### Additional Detections
-
-- **Timing anomalies** — Response times >3× the baseline suggest blind injection points
-- **HTTP 500 errors** — Internal server errors indicate unhandled exceptions from injected input
-- **HTTP 502/503 errors** — Backend crashes suggest potential DoS or overflow conditions
-- **Verbose error responses** — Error pages >5KB may leak internal architecture details
-
-### How It Works
-
-```
-Tool Output → Pattern Matching (40+ regexes) → Anomaly Signals
-                                              ↓
-                                    Auto-appended to AI context
-                                              ↓
-                                    AI receives: "Zero-Day Analysis:
-                                    🔴 [memory_address] Memory address leak detected
-                                    💡 Memory address leaks defeat ASLR..."
-```
-
-The AI then uses these signals to decide on deeper investigation — running targeted fuzzing, analyzing the response further, or recording a finding.
-
 ---
 
 ## Smart Fuzzing
-
-The AI agent can invoke intelligent fuzzing against specific endpoints and parameters.
 
 ### Payload Categories
 
@@ -96,30 +319,6 @@ The AI agent can invoke intelligent fuzzing against specific endpoints and param
 | `request_smuggling` | 2 | CL.TE and TE.CL smuggling payloads |
 | `race_condition` | 2 | Concurrent request markers for TOCTOU testing |
 
-### Agent Usage
-
-The AI invokes fuzzing with:
-```json
-{
-  "action": "fuzz",
-  "target_url": "http://target.com/api/search",
-  "parameter": "q",
-  "categories": ["xss", "command_injection", "template_injection"],
-  "explanation": "Search parameter reflects input — testing for injection"
-}
-```
-
-### Context-Aware Selection
-
-When a context hint is provided, payloads are prioritized:
-
-| Context | Priority Categories |
-|---------|--------------------|
-| `json_param` | command_injection, template_injection, deserialization, xss |
-| `url_path` | path_traversal, command_injection, ssrf |
-| `header` | header_injection, ssrf, command_injection |
-| `xml_body` | xxe, command_injection, buffer_overflow |
-
 ---
 
 ## Exploit Chain Analysis
@@ -137,65 +336,6 @@ The engine analyzes multiple findings to propose high-impact attack paths that c
 | **Info Disclosure → Credential Attack** | User enumeration + weak auth | Unauthorized account access |
 | **Open Redirect → Phishing** | Unvalidated redirect | Credential theft via trusted domain |
 
-### Agent Usage
-
-```json
-{
-  "action": "chain_exploits",
-  "explanation": "Analyze current findings for exploit chains"
-}
-```
-
-The engine returns a formatted report with:
-- Attack path steps
-- Overall severity and likelihood
-- Prerequisites for exploitation
-- Recommended mitigations
-
----
-
-## Version Gap Analysis
-
-Identifies services where the exact detected version has no known CVE, but nearby versions do — flagging them as zero-day candidates.
-
-### How It Works
-
-1. Agent detects service + version (e.g., via nmap)
-2. CVE lookup finds known vulnerabilities for the service
-3. If the exact version has no CVE but adjacent versions do:
-   - Flags as "between_cves" gap
-   - Recommends targeted fuzzing focused on vulnerability classes from nearby versions
-   - Suggests checking changelogs for security-relevant patches
-
----
-
-## New Tools Added
-
-The following tools were added to support zero-day discovery:
-
-| Tool | Purpose |
-|------|---------|
-| `wpscan` | WordPress vulnerability scanner |
-| `dalfox` | XSS scanner with fuzzing capabilities |
-| `commix` | Command injection exploiter |
-| `tplmap` | Server-side template injection detector |
-| `ghauri` | Advanced SQL injection tool |
-| `arjun` | HTTP parameter discovery |
-| `paramspider` | Parameter mining from web archives |
-| `katana` | Next-generation web crawler |
-| `gau` | URL fetching from web archives |
-| `waybackurls` | Wayback Machine URL extractor |
-| `crlfuzz` | CRLF injection scanner |
-| `jwt_tool` | JWT token analyzer and attacker |
-| `xxeinjector` | XXE injection tool |
-| `ysoserial` | Java deserialization exploit generator |
-| `python3` | Custom exploit script execution |
-| `ruby` | Metasploit modules and Ruby scripts |
-| `perl` | Legacy exploit script execution |
-| `php` | PHP exploit script execution |
-| `gcc` | Compiling C exploits |
-| `go` | Go-based security tools |
-
 ---
 
 ## Module: `hackbot.core.zeroday`
@@ -204,7 +344,7 @@ The following tools were added to support zero-day discovery:
 
 | Class | Description |
 |-------|-------------|
-| `ZeroDayEngine` | Main engine class with all analysis methods |
+| `ZeroDayEngine` | Main engine class with all analysis methods + active scan integration |
 | `AnomalySignal` | Detected anomaly with category, severity, evidence, exploit potential |
 | `ExploitChain` | Proposed exploit chain with steps, impact, and mitigations |
 | `VersionGapResult` | Version gap analysis result |
@@ -219,9 +359,27 @@ The following tools were added to support zero-day discovery:
 | `build_exploit_chains()` | Build exploit chains from findings list |
 | `analyze_version_gap()` | Check if a service version falls in a CVE gap |
 | `enrich_tool_output()` | Auto-analyze tool output for zero-day signals |
-| `get_payload_categories()` | List all available fuzz categories with counts |
-| `format_chains_report()` | Format exploit chains as markdown |
-| `format_anomalies_report()` | Format anomaly signals as markdown |
+| `run_active_scan()` | Run full autonomous crawl → fuzz → analyze loop |
+| `fuzz_endpoint()` | Stateful fuzzing with session management |
+| `race_test()` | Concurrent request race condition testing |
+| `map_target()` | Crawl and map target attack surface |
+
+## Module: `hackbot.core.zeroday_active`
+
+### Classes
+
+| Class | Description |
+|-------|-------------|
+| `HttpClient` | Session-aware HTTP client with baselines |
+| `TargetMapper` | Web crawler and endpoint mapper |
+| `StatefulFuzzer` | Auth/CSRF-aware fuzzing engine |
+| `AIReasoningLayer` | Heuristic decision engine for attack prioritization |
+| `ParallelExecutor` | Concurrent request engine for race conditions |
+| `ActiveScanLoop` | Full attack cycle orchestrator |
+| `ScanConfig` | Configuration dataclass for all scan parameters |
+| `EndpointInfo` | Discovered endpoint metadata |
+| `FuzzSession` | Stateful fuzzing campaign tracker |
+| `AttackState` | Global attack state for AI reasoning |
 
 ---
 

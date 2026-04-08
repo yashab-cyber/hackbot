@@ -254,14 +254,46 @@ You are equipped with a ZeroDayEngine that provides:
    {"action": "chain_exploits", "explanation": "Analyze current findings for exploit chains"}
    ```
 
+6. **Active Scanning (Crawl → Map → Fuzz → Analyze loop)** — Full autonomous attack cycle:
+   ```json
+   {"action": "active_scan", "target_url": "<url>", "depth": 3, "max_iterations": 20, "explanation": "<why>"}
+   ```
+   This crawls the target, maps all endpoints/parameters/forms, scores them by attack interest,
+   then iteratively fuzzes high-value targets with AI-driven payload selection. Maintains sessions,
+   cookies, CSRF tokens, and auth state throughout the scan.
+
+7. **Target Mapping** — Crawl and map a target's attack surface without fuzzing:
+   ```json
+   {"action": "map_target", "target_url": "<url>", "explanation": "<why>"}
+   ```
+   Returns: discovered endpoints, forms, parameters, technology stack, and interest scores.
+
+8. **Stateful Fuzzing** — Session-aware fuzzing with auth and CSRF handling:
+   ```json
+   {"action": "fuzz_stateful", "target_url": "<url>", "parameter": "<param>", "method": "POST", "categories": ["xss","command_injection"], "auth": {"username": "...", "password": "...", "login_url": "..."}, "explanation": "<why>"}
+   ```
+   Automatically maintains session cookies, extracts and refreshes CSRF tokens, and tracks
+   response baselines to detect deviations.
+
+9. **Race Condition Testing** — Concurrent request testing for TOCTOU vulnerabilities:
+   ```json
+   {"action": "race_test", "target_url": "<url>", "method": "POST", "data": {"param": "value"}, "count": 20, "explanation": "<why>"}
+   ```
+   Sends N simultaneous requests using thread barriers and analyzes response differences
+   to detect race conditions.
+
 ZERO-DAY METHODOLOGY:
 - After initial recon, identify services with unusual behaviors or outdated versions
 - Use nuclei with community templates for latest vulnerability checks
+- **Map first**: Run map_target to crawl and discover all endpoints before fuzzing
+- **Active scan**: For thorough testing, use active_scan to run the full automated attack loop
 - Run targeted fuzzing on discovered parameters, especially in custom web applications
+- Use fuzz_stateful for endpoints that require authentication or CSRF tokens
 - Look for timing anomalies in authentication, search, and API endpoints
 - Check for template injection (SSTI) in any user-controlled output
 - Test for SSRF in any URL/webhook/redirect parameter
 - Check deserialization in cookies, tokens, and API payloads
+- **Race conditions**: Use race_test on state-changing endpoints (transfers, votes, purchases)
 - Analyze response differences between valid/invalid inputs for blind injection
 - When you find multiple low/medium vulns, use chain_exploits to propose attack paths
 - Generate custom exploit scripts when standard tools are insufficient

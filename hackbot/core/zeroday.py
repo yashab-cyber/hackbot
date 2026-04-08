@@ -324,11 +324,110 @@ class ZeroDayEngine:
     Proactive zero-day vulnerability discovery engine.
 
     Goes beyond known-CVE scanning with intelligent fuzzing,
-    anomaly detection, version gap analysis, and exploit chaining.
+    anomaly detection, version gap analysis, exploit chaining,
+    and active scanning with HTTP client integration.
     """
 
     def __init__(self):
         self._anomaly_cache: Dict[str, List[AnomalySignal]] = {}
+        self._active_engine: Optional[Any] = None
+
+    # ── Active Engine Integration ────────────────────────────────────
+
+    @property
+    def active_engine(self) -> Any:
+        """Lazy-load the ActiveScanLoop for active attack capabilities."""
+        if self._active_engine is None:
+            try:
+                from hackbot.core.zeroday_active import ActiveScanLoop
+                self._active_engine = ActiveScanLoop()
+            except ImportError:
+                logger.warning("Active scan engine not available")
+        return self._active_engine
+
+    def run_active_scan(
+        self,
+        target_url: str,
+        config: Optional[Dict[str, Any]] = None,
+        on_finding: Optional[Any] = None,
+        on_status: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Run a full active scan loop against a target URL.
+
+        Args:
+            target_url: The base URL to scan
+            config: Optional ScanConfig overrides as dict
+            on_finding: Callback for each finding
+            on_status: Callback for status updates
+
+        Returns:
+            Complete scan report dict
+        """
+        from hackbot.core.zeroday_active import ActiveScanLoop, ScanConfig
+
+        scan_config = ScanConfig()
+        if config:
+            for key, val in config.items():
+                if hasattr(scan_config, key):
+                    setattr(scan_config, key, val)
+
+        loop = ActiveScanLoop(config=scan_config, on_finding=on_finding, on_status=on_status)
+        return loop.run(target_url)
+
+    def fuzz_endpoint(
+        self,
+        url: str,
+        parameter: str,
+        categories: Optional[List[str]] = None,
+        method: str = "GET",
+    ) -> Dict[str, Any]:
+        """Fuzz a specific endpoint parameter with stateful session management.
+
+        Returns:
+            FuzzSession results as dict
+        """
+        from hackbot.core.zeroday_active import HttpClient, StatefulFuzzer
+
+        client = HttpClient()
+        fuzzer = StatefulFuzzer(client, self)
+        session = fuzzer.fuzz_parameter(url, parameter, categories, method)
+        return session.to_dict()
+
+    def race_test(
+        self,
+        url: str,
+        method: str = "POST",
+        data: Optional[Dict[str, str]] = None,
+        count: int = 20,
+    ) -> Dict[str, Any]:
+        """Send concurrent requests to test for race conditions.
+
+        Returns:
+            Race test results with analysis
+        """
+        from hackbot.core.zeroday_active import HttpClient, ParallelExecutor
+
+        client = HttpClient()
+        executor = ParallelExecutor(client)
+        return executor.race_test(url, method, data, count)
+
+    def map_target(self, target_url: str) -> Dict[str, Any]:
+        """Crawl and map a target's attack surface.
+
+        Returns:
+            Endpoint map with scored targets
+        """
+        from hackbot.core.zeroday_active import HttpClient, TargetMapper
+
+        client = HttpClient()
+        mapper = TargetMapper(client)
+        endpoints = mapper.crawl(target_url)
+        return {
+            "endpoints": {k: v.to_dict() for k, v in endpoints.items()},
+            "tech_stack": list(mapper.tech_stack),
+            "total": len(endpoints),
+            "prioritized": [e.to_dict() for e in mapper.get_prioritized()[:20]],
+        }
 
     # ── Response Anomaly Detection ───────────────────────────────────
 
