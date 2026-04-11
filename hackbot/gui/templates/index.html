@@ -920,6 +920,11 @@ textarea#agentInput{min-height:56px}
             </select>
           </div>
           <div class="setting-row">
+            <label>Sudo Password <span style="color:var(--text-dim);font-weight:normal">(avoids repeated prompts)</span></label>
+            <input id="setSudoPassword" type="password" placeholder="Enter sudo password..." autocomplete="off">
+            <span id="sudoPassHint" style="font-size:.7rem;color:var(--text-dim);margin-top:2px"></span>
+          </div>
+          <div class="setting-row">
             <label>Report Format</label>
             <select id="setReportFormat">
               <option value="html">HTML</option>
@@ -3123,6 +3128,13 @@ async function loadSettings() {
     document.getElementById('setSafeMode').value = String(data.safe_mode);
     document.getElementById('setAutoConfirm').value = String(data.auto_confirm);
     document.getElementById('setSudoMode').value = String(data.sudo_mode ?? false);
+    document.getElementById('setSudoPassword').value = '';
+    const sudoHint = document.getElementById('sudoPassHint');
+    if (data.has_sudo_password) {
+      sudoHint.innerHTML = '🔑 <span style="color:var(--green)">Password saved</span> — leave blank to keep current';
+    } else {
+      sudoHint.textContent = 'No password set — sudo will prompt each time';
+    }
     document.getElementById('setReportFormat').value = data.report_format || 'html';
 
     // Populate language dropdown
@@ -3219,6 +3231,12 @@ async function saveSettings() {
     report_format: document.getElementById('setReportFormat').value,
     language: document.getElementById('setLanguage').value,
   };
+  const sudoPass = document.getElementById('setSudoPassword').value;
+  if (sudoPass) {
+    body.sudo_password = sudoPass;
+    body.sudo_mode = true;  // auto-enable sudo mode when password is set
+    document.getElementById('setSudoMode').value = 'true';
+  }
   const apiKey = document.getElementById('setApiKey').value;
   if (apiKey) body.api_key = apiKey;
 

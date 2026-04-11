@@ -387,6 +387,7 @@ class HackBotApp:
             "max_tokens": self.config.ai.max_tokens,
             "safe_mode": self.config.agent.safe_mode,
             "sudo_mode": self.config.agent.sudo_mode,
+            "sudo_password": "****" if self.config.agent.sudo_password else "(not set)",
             "language": self.config.ui.language,
         })
         return True
@@ -2662,6 +2663,7 @@ def config(ctx):
         "max_tokens": cfg.ai.max_tokens,
         "safe_mode": cfg.agent.safe_mode,
         "sudo_mode": cfg.agent.sudo_mode,
+        "sudo_password": "****" if cfg.agent.sudo_password else "(not set)",
     })
     print_info(f"Config file: {Path(CONFIG_DIR) / 'config.yaml'}")
 
